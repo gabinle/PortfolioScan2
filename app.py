@@ -222,9 +222,37 @@ html, body, [data-testid="stAppViewContainer"] {{
 }}
 .stTabs [data-baseweb="tab-list"] {{ gap: 4px; }}
 .stTabs [data-baseweb="tab"] {{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; letter-spacing: .06em; }}
+
+/* Desktop-only notice: covers the whole app on phones, tablets and narrow windows. */
+[data-testid="stElementContainer"]:has(.mobile-block) {{ display: none; }}
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {{
+  [data-testid="stElementContainer"]:has(.mobile-block) {{ display: block; }}
+  html, body {{ overflow: hidden !important; }}
+}}
+.mobile-block {{
+  position: fixed; inset: 0; z-index: 2147483647; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 1rem; padding: 2rem; text-align: center;
+  background: radial-gradient(600px 400px at 50% 35%, rgba(57,135,229,0.18), transparent 70%), {STAGE};
+  font-family: 'Inter', system-ui, sans-serif; color: {INK};
+}}
+.mobile-block .logo {{ font-weight: 700; font-size: 1.05rem; }}
+.mobile-block .logo i {{ font-style: normal; color: {BLUE}; margin-right: .35rem; }}
+.mobile-block .icon {{ font-size: 2.6rem; filter: drop-shadow(0 0 18px rgba(57,135,229,.7)); }}
+.mobile-block h2 {{ margin: 0; padding: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; color: {INK}; }}
+.mobile-block p {{ margin: 0; max-width: 22rem; font-size: .95rem; line-height: 1.6; color: {INK2}; }}
+.mobile-block .credit {{ margin-top: 1rem; font: 11px 'JetBrains Mono', monospace; color: #86b6ef; text-decoration: none; }}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+st.markdown(
+    '<div class="mobile-block"><div class="logo"><i>◆</i>PortfolioScan</div><div class="icon">🖥️</div>'
+    '<h2>Desktop only</h2>'
+    '<p>PortfolioScan is built for a computer screen, with its 3D globe, hover details and side panels. '
+    'Please open this page on a desktop or laptop.</p>'
+    '<a class="credit" href="https://www.linkedin.com/in/gabin-le/" target="_blank" rel="noopener noreferrer">'
+    'Made by Gabin Lê · 2026 ↗</a></div>',
+    unsafe_allow_html=True,
+)
 
 
 # ----------------------------------------------------------------------------
