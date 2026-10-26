@@ -1092,7 +1092,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False):
   .col {{ position:absolute; top:14px; bottom:14px; width:300px; display:flex; flex-direction:column; gap:12px;
          overflow-y:auto; scrollbar-width:none; z-index:5; }}
   .col::-webkit-scrollbar {{ display:none; }}
-  #left {{ left:16px; top:58px; }}  /* clears Streamlit's sidebar toggle */
+  #left {{ left:16px; }}
   /* Landing demo: a full-screen layer; JS shifts the globe right of the page's text column (placeDemoGlobe). */
   body.demo #right {{ right:24px; width:280px; }}
   .chip {{ position:absolute; top:4vh; right:24px; z-index:6; font:500 10.5px 'JetBrains Mono',monospace;
@@ -1955,53 +1955,7 @@ def on_bridge():
             sims[i] = {**sims[i], "value": value}
 
 
-# ── Sidebar ──────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown('<div class="section-label" style="margin-top:0">Theoretical position</div>',
-                unsafe_allow_html=True)
-    st.caption("Test a new stock: the ISIN is scanned first, then added if it resolves to a stock "
-               "(ETF support is coming soon).")
-    with st.form("sim_form", clear_on_submit=True, border=False):
-        sim_isin = st.text_input("ISIN", placeholder="e.g. US67066G1040").strip().upper()
-        sim_value = st.number_input("Position value", min_value=0.0, value=10000.0, step=1000.0)
-        submitted = st.form_submit_button("＋ Add to simulation", width="stretch", type="primary")
-    if submitted:
-        if not ISIN_RE.match(sim_isin):
-            st.error("That doesn't look like an ISIN (2 letters + 9 alphanumerics + 1 digit).")
-        elif sim_value <= 0:
-            st.error("Value must be greater than 0.")
-        else:
-            st.session_state.pending_sim = {"isin": sim_isin, "value": float(sim_value)}
-            st.rerun()
-
-    for i, s in enumerate(st.session_state.sims):
-        r = st.session_state.results.get(s["isin"], {})
-        c1, c2 = st.columns([5, 1], vertical_alignment="center")
-        c1.markdown(f'<span class="pill">◇ {s["isin"]}</span><br>'
-                    f'<span class="note">{html.escape(r.get("name") or "pending scan")} · {s["value"]:,.0f}</span>',
-                    unsafe_allow_html=True)
-        if c2.button("✕", key=f"rm_{i}", help="Remove"):
-            st.session_state.sims.pop(i)
-            st.rerun()
-    view = "Current"
-    if st.session_state.sims:
-        view = st.segmented_control("View", ["Current", "With simulation"],
-                                    default="With simulation") or "Current"
-        if st.button("Clear simulation", width="stretch"):
-            st.session_state.sims = []
-            st.rerun()
-
-    file_box = st.container()  # filled once a portfolio is loaded
-
-    st.markdown('<div class="section-label">Settings</div>', unsafe_allow_html=True)
-    # The server's own key (env var or Streamlit secret) stays server-side: pre-filling the input would
-    # send it to every visitor's browser. The input only lets a visitor supply their own.
-    figi_key = st.text_input("OpenFIGI API key (optional)", type="password",
-                             help="Without a key OpenFIGI allows ~25 requests/min.") or server_figi_key()
-    if st.button("↻ Rescan everything", width="stretch"):
-        st.session_state.results = {}
-        st.session_state.log = []
-        st.rerun()
+figi_key = server_figi_key()  # server-side only (env var or Streamlit secret)
 
 # ── Landing: ask for the file ────────────────────────────────────────────────
 if st.session_state.pf is None:
@@ -2017,20 +1971,6 @@ try:
     portfolio, rejected = parse_portfolio(pf["data"])
 except Exception as e:  # noqa: BLE001
     portfolio, rejected, parse_error = pd.DataFrame(), pd.DataFrame(), e
-
-with file_box:
-    st.markdown('<div class="section-label">Portfolio file</div>', unsafe_allow_html=True)
-    st.markdown(f'<span class="pill">▤ {html.escape(pf["name"])}</span>', unsafe_allow_html=True)
-    if len(rejected):
-        with st.expander(f"⚠ {len(rejected)} row(s) ignored"):
-            st.dataframe(rejected, hide_index=True, width="stretch")
-    new = st.file_uploader("Replace file", type=["xlsx", "xls"], key="up_side", label_visibility="collapsed")
-    if new is not None and new.getvalue() != pf["data"]:
-        st.session_state.pf = {"name": new.name, "data": new.getvalue()}
-        st.rerun()
-    if st.button("✕ Close portfolio", width="stretch"):
-        st.session_state.pf = None
-        st.rerun()
 
 if parse_error is not None or portfolio.empty:
     hero()
@@ -2074,12 +2014,10 @@ if current.empty:
     st.error("None of the positions resolved to a stock. ETF and fund support is coming soon.")
     st.stop()
 
-df = with_sim if view == "With simulation" else current
-excl = excluded_sim if view == "With simulation" else excluded
+df, excl = with_sim, excluded_sim
 notes = [f"{len(excl)} non-stock instrument(s) excluded · ETFs coming soon"] if len(excl) else []
-if len(excl):
-    with file_box:
-        st.caption("Excluded (not stocks; ETF support is coming soon): " + ", ".join(excl["isin"]))
+if len(rejected):
+    notes.append(f"{len(rejected)} row(s) ignored (not an ISIN or no value)")
 
 sim = None
 if has_sim:
