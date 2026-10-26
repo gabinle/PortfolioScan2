@@ -838,6 +838,7 @@ GLOBE_JS = "https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js"
 GLOBE_IMG = "https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/earth-dark.jpg"
 GLOBE_BUMP = "https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/earth-topology.png"
 ADM0_ALIASES = {"SSD": "SDS", "PSE": "PSX"}  # pycountry alpha-3 -> Natural Earth ADM0_A3
+GITHUB_URL = "https://github.com/gabinle/PortfolioScan2/"
 Y_LABEL_W = 150
 MONO = "JetBrains Mono, monospace"
 SANS = "Inter, system-ui, sans-serif"
@@ -1078,7 +1079,9 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False):
                    f'</div>')
     dock = ('<div class="btns">' + "".join(
         f'<button data-open="{k}" data-title="{t}">{label}</button>' for k, label, t in buttons)
-        + '<button id="restart" class="restart" title="Back to the upload page">⟲ Restart</button></div>')
+        + '<button id="restart" class="restart" title="Back to the upload page">⟲ Restart</button>'
+        + f'<a href="{GITHUB_URL}" target="_blank" rel="noopener noreferrer" title="Source code on GitHub">'
+        + '⌥ GitHub ↗</a></div>')
     right.append(("Details", dock))
     title_k, title_v = "◆ Global exposure", f"{len(g)} countries"
     hint = "drag to spin · scroll to zoom · hover for positions · click a country to fly"
@@ -1196,10 +1199,10 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False):
   .drow .dn {{ color:{RED}; font-family:'JetBrains Mono',monospace; white-space:nowrap; }}
   .empty {{ color:{MUTED}; font-size:12px; padding-bottom:8px; }}
   .btns {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }}
-  .btns button {{ font:11px 'JetBrains Mono',monospace; color:{INK2}; white-space:nowrap;
+  .btns button, .btns a {{ font:11px 'JetBrains Mono',monospace; color:{INK2}; white-space:nowrap;
                  background:rgba(57,135,229,.08); border:1px solid rgba(57,135,229,.35); border-radius:9px;
-                 padding:8px 4px; cursor:pointer; transition:all .15s; }}
-  .btns button:hover {{ color:{INK}; background:rgba(57,135,229,.18); box-shadow:0 0 16px rgba(57,135,229,.35); }}
+                 padding:8px 4px; cursor:pointer; transition:all .15s; text-align:center; text-decoration:none; }}
+  .btns button:hover, .btns a:hover {{ color:{INK}; background:rgba(57,135,229,.18); box-shadow:0 0 16px rgba(57,135,229,.35); }}
   .hud {{ position:absolute; z-index:4; pointer-events:none; text-align:center; left:50%; transform:translateX(-50%); }}
   #title {{ top:14px; }}
   #title .k {{ font:500 10.5px 'JetBrains Mono',monospace; letter-spacing:.22em; color:{BLUE}; text-transform:uppercase; }}
