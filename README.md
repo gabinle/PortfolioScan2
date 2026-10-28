@@ -12,7 +12,6 @@ piece of data comes from.
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.59-FF4B4B?logo=streamlit&logoColor=white)
-![Runs in the browser](https://img.shields.io/badge/analysis-in%20your%20session-3987e5)
 
 [Quick start](#quick-start) · [Features](#features) · [How it works](#how-each-position-is-analysed) ·
 [Run locally](#run-locally) · [Privacy](#privacy)
