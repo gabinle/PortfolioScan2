@@ -6,6 +6,7 @@ FinanceDatabase is read from an embedded snapshot (data/fd_equities.csv.gz), not
 ETFs are spread over their countries and sectors from data/etf_*.csv.gz; broker exports are read by importer.py.
 """
 import os
+import base64
 import html
 import io
 import json
@@ -25,12 +26,65 @@ from shapely.geometry.polygon import orient
 
 from importer import SEPARATORS, column_labels, detect, extract, read_tables
 
-st.set_page_config(page_title="PortfolioScan", page_icon="◆", layout="wide")
+LOGO_PNG = Path(__file__).parent / "assets" / "logo.png"   # static frame, browser-tab icon
+LOGO_SVG_FILE = Path(__file__).parent / "assets" / "logo.svg"   # animated radar, shown next to the name
+st.set_page_config(page_title="PortfolioScan", page_icon=str(LOGO_PNG), layout="wide")
 
 # ----------------------------------------------------------------------------
 # Design tokens (dark palette)
 # ----------------------------------------------------------------------------
+# Fonts: change these names to try other fonts (each must exist on Google Fonts).
+FONT_DISPLAY = "Inter Tight"   # big titles ("See where your money lives.")
+FONT_SANS = "Inter"   # text
+FONT_MONO = "JetBrains Mono"    # figures, labels, logs
+FONTS_CSS = ("https://fonts.googleapis.com/css2?"
+             + "&".join(f"family={f.replace(' ', '+')}:wght@400;500;600;700"
+                        for f in dict.fromkeys([FONT_DISPLAY, FONT_SANS, FONT_MONO]))
+             + "&display=swap")
+
+# Logo mark, shown left of the "PortfolioScan" name (landing page, scan screen, small-screen notice).
+LOGO_IMG = (f'<img src="data:image/svg+xml;base64,{base64.b64encode(LOGO_SVG_FILE.read_bytes()).decode()}" alt="" '
+            'style="width:3em;height:3em;vertical-align:-.38em">')
+LOGO = f"<i>{LOGO_IMG}</i>PortfolioScan"
+# Text effect on the "PortfolioScan" name: blue-white gradient with a slow light sweep (reduced-motion: static).
+LOGO_FX = ("background: linear-gradient(100deg, #f0efec 0%, #86b6ef 30%, #3987e5 50%, #86b6ef 70%, #f0efec 100%) 0 0 / 250% 100%; "
+           "-webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: logosweep 6s linear infinite;")
+LOGO_FX_CSS = ("@keyframes logosweep { from { background-position: 250% 0; } to { background-position: 0 0; } } "
+               "@media (prefers-reduced-motion: reduce) { .logo { animation: none !important; } }")
+GITHUB_URL = "https://github.com/gabinle/PortfolioScan2"
+GITHUB_ICON = ('<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>')
 PLANE = "#0a0c10"
+
+# Loading screen: covers the page while the first run builds it (logo on the page background), removed once it is done.
+# The animation also fades it out by itself after 20 s, so an error can never leave the page hidden.
+BOOT_HTML = f"""<style>
+.stElementContainer:has(.boot) {{ position: fixed !important; height: 0 !important; margin: 0 !important; }}
+.boot {{ position: fixed; inset: 0; z-index: 999999; background: {PLANE}; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 1.4rem; animation: bootaway .5s ease 20s forwards; }}
+.boot img {{ width: 112px; height: 112px; }}
+.boot .bar {{ width: 120px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,.08); }}
+.boot .bar::after {{ content: ""; display: block; width: 40%; height: 100%; border-radius: 2px; background: #86b6ef;
+                     animation: bootbar 1.4s ease-in-out infinite; }}
+@keyframes bootbar {{ from {{ transform: translateX(-100%); }} to {{ transform: translateX(250%); }} }}
+@keyframes bootaway {{ to {{ opacity: 0; visibility: hidden; }} }}
+</style>
+<div class="boot"><img alt="" src="data:image/svg+xml;base64,{base64.b64encode(LOGO_SVG_FILE.read_bytes()).decode()}">
+<div class="bar"></div></div>"""
+BOOT_SECONDS = 2   # the loading screen stays at least this long (first visit, and before the first results)
+
+
+def show_boot():
+    """Cover the page with the loading screen; returns what hide_boot needs."""
+    holder = st.empty()
+    holder.markdown(BOOT_HTML, unsafe_allow_html=True)
+    return holder, time.time()
+
+
+def hide_boot(boot):
+    """Remove the loading screen once the page is built, after BOOT_SECONDS at the earliest."""
+    holder, since = boot
+    time.sleep(max(0.0, BOOT_SECONDS - (time.time() - since)))
+    holder.empty()
 STAGE = "#07090d"   # page / globe backdrop
 SURFACE = "#12151b"
 INK = "#f0efec"
@@ -99,14 +153,14 @@ TERM_CSS = f"""
 .term-bar {{
   display: flex; align-items: center; gap: 6px; padding: .5rem .8rem;
   background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06);
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {MUTED};
+  font-family: '{FONT_MONO}', monospace; font-size: 11px; color: {MUTED};
 }}
 .term-bar i {{ width: 9px; height: 9px; border-radius: 50%; background: #2c2f36; display: inline-block; }}
 .term-bar .t {{ margin-left: .6rem; letter-spacing: .08em; }}
 .term-body {{
   height: 360px; overflow-y: auto; padding: .6rem .8rem;
   display: flex; flex-direction: column-reverse;   /* keeps the view pinned to the newest line */
-  font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.65;
+  font-family: '{FONT_MONO}', monospace; font-size: 12px; line-height: 1.65;
 }}
 .ln {{ display: flex; gap: .7rem; white-space: nowrap; }}
 .ln .ts {{ color: #4b4e56; }}
@@ -132,10 +186,10 @@ TERM_CSS = f"""
 
 CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('{FONTS_CSS}');
 
 html, body, [data-testid="stAppViewContainer"] {{
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: '{FONT_SANS}', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }}
 /* The whole page is the globe's "space": deep black with a soft blue glow, no grid. */
 [data-testid="stAppViewContainer"] {{
@@ -153,10 +207,11 @@ html, body, [data-testid="stAppViewContainer"] {{
 
 .hero {{ margin-bottom: .8rem; }}
 .hero-tag {{
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .22em;
+  font-family: '{FONT_MONO}', monospace; font-size: 11px; letter-spacing: .22em;
   color: {BLUE}; text-transform: uppercase;
 }}
 .hero h1 {{
+  font-family: '{FONT_DISPLAY}', '{FONT_SANS}', sans-serif !important;
   font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin: .2rem 0 .3rem; padding: 0;
   color: {INK};
 }}
@@ -167,7 +222,7 @@ html, body, [data-testid="stAppViewContainer"] {{
 .hero p {{ color: {MUTED}; margin: 0; font-size: .95rem; }}
 
 .section-label {{
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .18em;
+  font-family: '{FONT_MONO}', monospace; font-size: 11px; letter-spacing: .18em;
   text-transform: uppercase; color: {MUTED}; margin: 1.6rem 0 .6rem;
   display: flex; align-items: center; gap: .6rem;
 }}
@@ -188,9 +243,9 @@ html, body, [data-testid="stAppViewContainer"] {{
   content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
   background: linear-gradient(90deg, {BLUE}, transparent);
 }}
-.kpi .k {{ font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: {MUTED}; }}
+.kpi .k {{ font-family: '{FONT_MONO}', monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: {MUTED}; }}
 .kpi .v {{ font-size: 1.7rem; font-weight: 600; color: {INK}; margin-top: .25rem; letter-spacing: -0.02em; }}
-.kpi .d {{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {INK2}; margin-top: .1rem; }}
+.kpi .d {{ font-family: '{FONT_MONO}', monospace; font-size: 12px; color: {INK2}; margin-top: .1rem; }}
 
 /* Source pipeline */
 .pipe {{ display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }}
@@ -199,28 +254,28 @@ html, body, [data-testid="stAppViewContainer"] {{
   border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02);
   transition: all .2s ease;
 }}
-.node .idx {{ font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {MUTED}; letter-spacing: .14em; }}
+.node .idx {{ font-family: '{FONT_MONO}', monospace; font-size: 10px; color: {MUTED}; letter-spacing: .14em; }}
 .node .nm {{ font-weight: 600; color: {INK}; margin-top: .15rem; }}
 .node .sub {{ font-size: 12px; color: {MUTED}; }}
-.node .hits {{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {INK2}; margin-top: .45rem; }}
+.node .hits {{ font-family: '{FONT_MONO}', monospace; font-size: 12px; color: {INK2}; margin-top: .45rem; }}
 .node.active {{
   border-color: {BLUE};
   box-shadow: 0 0 0 1px rgba(57,135,229,.35), 0 0 24px rgba(57,135,229,.25);
   background: rgba(57,135,229,0.08);
 }}
 .node.active .idx::after {{ content: "  ● QUERYING"; color: {BLUE}; animation: blink 1s infinite; }}
-.arrow {{ display: flex; align-items: center; color: {AXIS}; font-family: 'JetBrains Mono', monospace; }}
+.arrow {{ display: flex; align-items: center; color: {AXIS}; font-family: '{FONT_MONO}', monospace; }}
 @keyframes blink {{ 50% {{ opacity: .25; }} }}
 
 
 {TERM_CSS}
-.spec {{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: {INK2}; }}
+.spec {{ font-family: '{FONT_MONO}', monospace; font-size: 12.5px; color: {INK2}; }}
 .spec table {{ border-collapse: collapse; margin-top: .5rem; width: 100%; }}
 .spec td, .spec th {{ border: 1px solid rgba(255,255,255,0.08); padding: .35rem .6rem; text-align: left; }}
 .spec th {{ color: {BLUE}; font-weight: 500; }}
 
 .pill {{
-  display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  display: inline-block; font-family: '{FONT_MONO}', monospace; font-size: 11px;
   padding: .1rem .55rem; border-radius: 999px; border: 1px solid rgba(57,135,229,.45);
   color: #86b6ef; margin: 0 .25rem .25rem 0;
 }}
@@ -231,7 +286,7 @@ html, body, [data-testid="stAppViewContainer"] {{
   background: rgba(57,135,229,0.05); border: 1px dashed rgba(57,135,229,0.5); border-radius: 14px;
 }}
 .stTabs [data-baseweb="tab-list"] {{ gap: 4px; }}
-.stTabs [data-baseweb="tab"] {{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; letter-spacing: .06em; }}
+.stTabs [data-baseweb="tab"] {{ font-family: '{FONT_MONO}', monospace; font-size: 12.5px; letter-spacing: .06em; }}
 
 /* Desktop-only notice: covers the whole app on phones, tablets and narrow windows. */
 [data-testid="stElementContainer"]:has(.mobile-block) {{ display: none; }}
@@ -243,19 +298,20 @@ html, body, [data-testid="stAppViewContainer"] {{
   position: fixed; inset: 0; z-index: 2147483647; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 1rem; padding: 2rem; text-align: center;
   background: radial-gradient(600px 400px at 50% 35%, rgba(57,135,229,0.18), transparent 70%), {STAGE};
-  font-family: 'Inter', system-ui, sans-serif; color: {INK};
+  font-family: '{FONT_SANS}', system-ui, sans-serif; color: {INK};
 }}
-.mobile-block .logo {{ font-weight: 700; font-size: 1.05rem; }}
-.mobile-block .logo i {{ font-style: normal; color: {BLUE}; margin-right: .35rem; }}
+.mobile-block .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 700; font-size: 1.3rem; line-height: 1; }}
+{LOGO_FX_CSS}
+.mobile-block .logo i {{ display: inline-flex; position: relative; top: -.06em; font-style: normal; color: {BLUE}; margin-right: .35rem; }}
 .mobile-block .icon {{ font-size: 2.6rem; filter: drop-shadow(0 0 18px rgba(57,135,229,.7)); }}
 .mobile-block h2 {{ margin: 0; padding: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; color: {INK}; }}
 .mobile-block p {{ margin: 0; max-width: 22rem; font-size: .95rem; line-height: 1.6; color: {INK2}; }}
-.mobile-block .credit {{ margin-top: 1rem; font: 11px 'JetBrains Mono', monospace; color: #86b6ef; text-decoration: none; }}
+.mobile-block .credit {{ margin-top: 1rem; font: 11px '{FONT_MONO}', monospace; color: #86b6ef; text-decoration: none; }}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
 st.markdown(
-    '<div class="mobile-block"><div class="logo"><i>◆</i>PortfolioScan</div><div class="icon">🖥️</div>'
+    f'<div class="mobile-block"><div class="logo">{LOGO}</div><div class="icon">🖥️</div>'
     '<h2>Desktop only</h2>'
     '<p>PortfolioScan is built for a computer screen, with its 3D globe, hover details and side panels. '
     'Please open this page on a desktop or laptop.</p>'
@@ -742,13 +798,14 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="stHeader"],
 [data-testid="stDecoration"], [data-testid="stStatusWidget"] {{ display: none !important; }}
 .scanhead {{ display: flex; align-items: center; gap: 1.2rem; margin-bottom: 2.4vh; }}
-.scanhead .logo {{ font-weight: 700; font-size: 1.05rem; color: {INK}; }}
-.scanhead .logo i {{ font-style: normal; color: {BLUE}; margin-right: .35rem; }}
-.scanhead .live {{ font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: .18em; color: #fff;
+.scanhead .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 700; font-size: 1.3rem; line-height: 1; }}
+{LOGO_FX_CSS}
+.scanhead .logo i {{ display: inline-flex; position: relative; top: -.06em; font-style: normal; color: {BLUE}; margin-right: .35rem; }}
+.scanhead .live {{ font: 600 10.5px '{FONT_MONO}', monospace; letter-spacing: .18em; color: #fff;
                   background: rgba(57,135,229,.18); border: 1px solid rgba(57,135,229,.55); border-radius: 999px;
                   padding: .3rem .75rem; }}
 .scanhead .live b {{ color: {BLUE}; animation: blink 1s infinite; }}
-.scanhead .file {{ font: 12px 'JetBrains Mono', monospace; color: {MUTED}; }}
+.scanhead .file {{ font: 12px '{FONT_MONO}', monospace; color: {MUTED}; }}
 .st-key-scanr .term-body {{ height: calc(100vh - 300px); }}
 
 /* Loading circle: a progress ring wrapped by two counter-rotating glowing arcs. */
@@ -773,25 +830,25 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 .loader .pct {{ font-size: clamp(2.4rem, 6.5vh, 3.6rem); font-weight: 700; letter-spacing: -.04em; color: {INK};
                text-shadow: 0 0 30px rgba(57,135,229,.6); line-height: 1; }}
 .loader .pct small {{ font-size: .45em; color: #86b6ef; margin-left: .1em; }}
-.loader .cnt {{ font: 12px 'JetBrains Mono', monospace; color: {INK2}; margin-top: .5rem; }}
-.scannow {{ text-align: center; font: 12px 'JetBrains Mono', monospace; color: {MUTED}; margin-bottom: 1.6vh; }}
+.loader .cnt {{ font: 12px '{FONT_MONO}', monospace; color: {INK2}; margin-top: .5rem; }}
+.scannow {{ text-align: center; font: 12px '{FONT_MONO}', monospace; color: {MUTED}; margin-bottom: 1.6vh; }}
 .scannow b {{ color: {INK}; font-weight: 500; letter-spacing: .04em; }}
 .lastcard {{ border: 1px solid rgba(57,135,229,.35); border-radius: 14px; padding: .9rem 1.1rem;
             background: linear-gradient(135deg, rgba(57,135,229,.12), rgba(57,135,229,.02));
             box-shadow: 0 0 30px rgba(57,135,229,.12); }}
-.lastcard .k {{ font: 500 10px 'JetBrains Mono', monospace; letter-spacing: .2em; color: {BLUE}; text-transform: uppercase; }}
+.lastcard .k {{ font: 500 10px '{FONT_MONO}', monospace; letter-spacing: .2em; color: {BLUE}; text-transform: uppercase; }}
 .lastcard .n {{ font-size: 1.05rem; font-weight: 600; color: {INK}; margin: .25rem 0 .1rem;
                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
 .lastcard .d {{ font-size: .82rem; color: {INK2}; }}
 .lastcard .srcs {{ margin-top: .5rem; display: flex; gap: .35rem; flex-wrap: wrap; }}
-.lastcard .srcs span {{ font: 600 10px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #86b6ef;
+.lastcard .srcs span {{ font: 600 10px '{FONT_MONO}', monospace; letter-spacing: .06em; color: #86b6ef;
                        border: 1px solid rgba(57,135,229,.45); border-radius: 4px; padding: .05rem .4rem; }}
 .scount {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin-top: 1.4vh; }}
 .scount div {{ border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: .55rem .6rem;
               background: rgba(255,255,255,.02); }}
 .scount b {{ display: block; font-size: 1.25rem; font-weight: 600; }}
-.scount span {{ font: 9.5px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: {MUTED}; }}
-.stime {{ display: flex; justify-content: space-between; font: 11px 'JetBrains Mono', monospace; color: {MUTED};
+.scount span {{ font: 9.5px '{FONT_MONO}', monospace; letter-spacing: .08em; text-transform: uppercase; color: {MUTED}; }}
+.stime {{ display: flex; justify-content: space-between; font: 11px '{FONT_MONO}', monospace; color: {MUTED};
          margin-top: 1.2vh; }}
 .stime b {{ color: {INK2}; font-weight: 500; }}
 </style>
@@ -855,7 +912,7 @@ def run_scan(isins: list[str], figi_key: str | None, file_name: str = ""):
     """Full-screen scan view: loading circle + counters on the left, source pipeline + live log on the right."""
     ss = st.session_state
     st.markdown(SCAN_CSS, unsafe_allow_html=True)
-    st.markdown(f'<div class="scanhead"><span class="logo"><i>◆</i>PortfolioScan</span>'
+    st.markdown(f'<div class="scanhead"><span class="logo">{LOGO}</span>'
                 f'<span class="live"><b>●</b> LIVE SCAN</span><span class="file">{html.escape(file_name)} · '
                 f'{len(isins)} asset(s) · FinanceDatabase → yfinance → OpenFIGI</span></div>',
                 unsafe_allow_html=True)
@@ -1203,8 +1260,8 @@ GLOBE_BUMP = "https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/earth-
 ADM0_ALIASES = {"SSD": "SDS", "PSE": "PSX"}  # pycountry alpha-3 -> Natural Earth ADM0_A3
 GITHUB_URL = "https://github.com/gabinle/PortfolioScan2/"
 Y_LABEL_W = 150
-MONO = "JetBrains Mono, monospace"
-SANS = "Inter, system-ui, sans-serif"
+MONO = f"{FONT_MONO}, monospace"
+SANS = f"{FONT_SANS}, system-ui, sans-serif"
 TOOLTIP = {
     "backgroundColor": SURFACE, "borderColor": BLUE, "borderWidth": 1, "padding": [8, 12],
     "textStyle": {"color": INK, "fontFamily": MONO, "fontSize": 12},
@@ -1562,13 +1619,11 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
         + f'<a href="{GITHUB_URL}" target="_blank" rel="noopener noreferrer" title="Source code on GitHub">'
         + '⌥ GitHub ↗</a></div>')
     right.append(("Details", dock))
-    title_k, title_v = "◆ Global exposure", f"{len(g)} countries"
     hint = "drag to spin · scroll to zoom · hover for positions · click a country to fly"
     if demo:  # showcase: no portfolio card, no detail windows, just the globe and two ranking cards
         left, charts = [], {}
         right = [("Top sectors", _rows([(k, 100 * v, "", None, None) for k, v in sec_w.head(7).items()], "s")),
                  ("Top countries", _rows(country_rows[:7], "c", fly=True))]
-        title_k, title_v = "◆ Live demo", f"{len(df)} stocks · {len(g)} countries"
         hint = "sample portfolio · drag to spin · hover for positions"
 
     # Card titles that open the matching detail window (the rows keep their own hover / fly behaviour).
@@ -1616,12 +1671,12 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
     payload = _js_json({"features": features, "rings": rings})
 
     st.iframe(f"""<!doctype html><html><head>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="{FONTS_CSS}" rel="stylesheet">
 <script src="{GLOBE_JS}"></script>
 <script src="{ECHARTS_JS}"></script>
 <style>
   * {{ box-sizing:border-box; }}
-  html, body {{ margin:0; padding:0; height:100%; overflow:hidden; color:{INK}; font-family:Inter,system-ui,sans-serif;
+  html, body {{ margin:0; padding:0; height:100%; overflow:hidden; color:{INK}; font-family:'{FONT_SANS}',system-ui,sans-serif;
                background:radial-gradient(1100px 700px at 50% 45%, rgba(57,135,229,0.10), transparent 62%), {STAGE}; }}
   #stage {{ position:relative; width:100%; height:100vh; }}
   #globe {{ position:absolute; inset:0; }}
@@ -1633,7 +1688,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   #left {{ left:16px; }}
   /* Landing demo: a full-screen layer; JS shifts the globe right of the page's text column (placeDemoGlobe). */
   body.demo #right {{ right:24px; width:280px; }}
-  .chip {{ position:absolute; top:4vh; right:24px; z-index:6; font:500 10.5px 'JetBrains Mono',monospace;
+  .chip {{ position:absolute; top:4vh; right:24px; z-index:6; font:500 10.5px '{FONT_MONO}',monospace;
           letter-spacing:.14em; text-transform:uppercase; color:#86b6ef; border:1px solid rgba(57,135,229,.4);
           border-radius:999px; padding:.3rem .7rem; background:rgba(57,135,229,.08); }}
   html:has(body.demo), body.demo {{ background:transparent; }}  /* blend into the landing page behind it */
@@ -1642,12 +1697,12 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .card {{ background:rgba(12,15,21,.74); border:1px solid rgba(255,255,255,.07); border-radius:14px;
           padding:14px 16px 10px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
           box-shadow:0 8px 30px rgba(0,0,0,.35); flex-shrink:0; }}
-  .card h3 {{ margin:0 0 10px; font:500 10.5px 'JetBrains Mono',monospace; letter-spacing:.2em;
+  .card h3 {{ margin:0 0 10px; font:500 10.5px '{FONT_MONO}',monospace; letter-spacing:.2em;
              text-transform:uppercase; color:{BLUE}; }}
   .card h3.lnk {{ cursor:pointer; transition:color .15s; }}
   .card h3.lnk::after {{ content:" ›"; }}
   .card h3.lnk:hover {{ color:{INK}; }}
-  .cta {{ width:100%; margin:10px 0 4px; font:600 12.5px Inter,sans-serif; color:#fff; cursor:pointer;
+  .cta {{ width:100%; margin:10px 0 4px; font:600 12.5px '{FONT_SANS}',sans-serif; color:#fff; cursor:pointer;
          background:linear-gradient(90deg,#1c5cab,{BLUE}); border:1px solid rgba(134,182,239,.5); border-radius:10px;
          padding:9px 12px; box-shadow:0 0 18px rgba(57,135,229,.3); transition:all .15s; }}
   .cta:hover {{ box-shadow:0 0 26px rgba(57,135,229,.55); filter:brightness(1.08); }}
@@ -1655,17 +1710,17 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .btns .restart:hover {{ background:rgba(230,103,103,.16); box-shadow:0 0 16px rgba(230,103,103,.3); }}
   .btns .restart.armed {{ color:#fff; background:rgba(230,103,103,.35); }}
   .tform {{ display:flex; flex-direction:column; gap:12px; }}
-  .tform label {{ font:10.5px 'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:{MUTED}; }}
+  .tform label {{ font:10.5px '{FONT_MONO}',monospace; letter-spacing:.14em; text-transform:uppercase; color:{MUTED}; }}
   .tform input {{ width:100%; margin-top:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.12);
-                 border-radius:9px; color:{INK}; padding:10px 12px; font:14px 'JetBrains Mono',monospace; outline:none; }}
+                 border-radius:9px; color:{INK}; padding:10px 12px; font:14px '{FONT_MONO}',monospace; outline:none; }}
   .tform input:focus {{ border-color:{BLUE}; box-shadow:0 0 0 3px rgba(57,135,229,.15); }}
   .tform .hint {{ font-size:12px; color:{MUTED}; line-height:1.5; }}
-  .tform .err {{ font:12px 'JetBrains Mono',monospace; color:{RED}; min-height:16px; }}
+  .tform .err {{ font:12px '{FONT_MONO}',monospace; color:{RED}; min-height:16px; }}
   .tform .cta {{ margin:0; padding:11px; }}
   .mbox.sm {{ width:min(440px, 92vw); height:auto; }}
   .row {{ display:grid; grid-template-columns:1fr auto; column-gap:8px; font-size:12.5px; margin-bottom:9px; }}
   .row .nm {{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
-  .row .pc {{ font-family:'JetBrains Mono',monospace; color:#86b6ef; font-size:12px; }}
+  .row .pc {{ font-family:'{FONT_MONO}',monospace; color:#86b6ef; font-size:12px; }}
   .row .sub {{ grid-column:1 / -1; font-size:10.5px; color:{MUTED}; margin-top:1px;
               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
   .row .trk {{ grid-column:1 / -1; height:3px; border-radius:3px; background:rgba(255,255,255,.06); margin-top:4px; }}
@@ -1677,11 +1732,11 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .row.fly {{ cursor:pointer; }}
   .row.hov:hover {{ background:rgba(57,135,229,.10); }}
   .big {{ font-size:30px; font-weight:700; letter-spacing:-.02em; }}
-  .bigsub {{ font:11.5px 'JetBrains Mono',monospace; color:{MUTED}; margin:2px 0 12px; }}
+  .bigsub {{ font:11.5px '{FONT_MONO}',monospace; color:{MUTED}; margin:2px 0 12px; }}
   .stats {{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px 8px; padding-bottom:6px; }}
   .stats b {{ display:block; font-size:16px; font-weight:600; }}
-  .stats span {{ font:10px 'JetBrains Mono',monospace; color:{MUTED}; letter-spacing:.04em; }}
-  .warn {{ font:11px 'JetBrains Mono',monospace; color:{MUTED}; margin:6px 0 2px; }}
+  .stats span {{ font:10px '{FONT_MONO}',monospace; color:{MUTED}; letter-spacing:.04em; }}
+  .warn {{ font:11px '{FONT_MONO}',monospace; color:{MUTED}; margin:6px 0 2px; }}
   .ihint {{ font-size:12px; color:{MUTED}; margin:0 0 12px; }}
   .isum {{ font-size:15px; color:{INK2}; margin:0 0 4px; }}
   .accr {{ cursor:pointer; }}
@@ -1693,46 +1748,46 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .acc-item {{ text-align:left; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07);
               border-radius:10px; padding:9px 11px; color:{INK}; cursor:pointer; font:inherit; }}
   .acc-item .nm {{ display:block; font-size:13px; font-weight:600; }}
-  .acc-item .v {{ display:block; font:11px 'JetBrains Mono',monospace; color:{MUTED}; margin-top:3px; }}
+  .acc-item .v {{ display:block; font:11px '{FONT_MONO}',monospace; color:{MUTED}; margin-top:3px; }}
   .acc-item:hover {{ border-color:rgba(57,135,229,.45); }}
   .acc-item.on {{ border-color:{BLUE}; background:rgba(57,135,229,.12); }}
   .acc-head {{ margin-bottom:16px; }}
   .acc-head b {{ display:block; font-size:19px; font-weight:700; letter-spacing:-.01em; }}
-  .acc-head span {{ font:11.5px 'JetBrains Mono',monospace; color:{MUTED}; }}
+  .acc-head span {{ font:11.5px '{FONT_MONO}',monospace; color:{MUTED}; }}
   .acc-detail table {{ font-size:12px; }}
   @media (max-width:820px) {{ .acc {{ grid-template-columns:1fr; }} .acc-list {{ position:static; }} }}
   .isum b {{ color:{INK}; font-weight:600; }}
   td.lk {{ white-space:normal; color:{MUTED}; min-width:220px; }}
   td.wr {{ white-space:normal; min-width:180px; }}
-  .fx-open, .fx-reset, .fx-add, .fx-cancel {{ font:11px 'JetBrains Mono',monospace; color:#86b6ef; cursor:pointer;
+  .fx-open, .fx-reset, .fx-add, .fx-cancel {{ font:11px '{FONT_MONO}',monospace; color:#86b6ef; cursor:pointer;
     background:rgba(57,135,229,.08); border:1px solid rgba(57,135,229,.35); border-radius:7px; padding:4px 9px; }}
   .fx-open:hover, .fx-reset:hover, .fx-add:hover, .fx-cancel:hover {{ color:{INK}; border-color:{BLUE}; }}
   #fixbox {{ border:1px solid rgba(57,135,229,.35); border-radius:12px; padding:14px 16px; margin:0 0 16px;
     background:rgba(57,135,229,.05); }}
   .fxh {{ margin-bottom:12px; }} .fxh b {{ font-size:15px; margin-right:10px; }}
-  .fxh span {{ font:11.5px 'JetBrains Mono',monospace; color:{MUTED}; }}
+  .fxh span {{ font:11.5px '{FONT_MONO}',monospace; color:{MUTED}; }}
   .fx-row {{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }}
   .fx-row .fx-k {{ flex:1; min-width:0; }}
   .fx-row input {{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:7px;
-    color:{INK}; padding:5px 8px; font:12px Inter,sans-serif; outline:none; }}
-  .fx-row .fx-p {{ width:72px; font-family:'JetBrains Mono',monospace; }}
+    color:{INK}; padding:5px 8px; font:12px '{FONT_SANS}',sans-serif; outline:none; }}
+  .fx-row .fx-p {{ width:72px; font-family:'{FONT_MONO}',monospace; }}
   .fx-row input:focus {{ border-color:{BLUE}; }}
   .fx-row span {{ font-size:11px; color:{MUTED}; }}
   .fx-x {{ width:24px; height:24px; border-radius:6px; cursor:pointer; color:{MUTED}; background:transparent;
     border:1px solid rgba(255,255,255,.1); }}
   .fx-x:hover {{ color:#fff; border-color:rgba(230,103,103,.6); }}
-  .fx-tot {{ font:11px 'JetBrains Mono',monospace; color:{MUTED}; margin-top:6px; }}
+  .fx-tot {{ font:11px '{FONT_MONO}',monospace; color:{MUTED}; margin-top:6px; }}
   .fx-btns {{ display:flex; gap:10px; align-items:center; margin:14px 0 6px; }}
   .fx-btns .cta {{ width:auto; padding:8px 16px; margin:0; }}
   .fx-sec {{ margin-top:22px; }}
   .tabs {{ display:flex; gap:6px; margin-bottom:12px; }}
-  .tab {{ font:11.5px 'JetBrains Mono',monospace; color:{MUTED}; background:transparent; cursor:pointer;
+  .tab {{ font:11.5px '{FONT_MONO}',monospace; color:{MUTED}; background:transparent; cursor:pointer;
     border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:6px 12px; }}
   .tab.on {{ color:{INK}; border-color:{BLUE}; background:rgba(57,135,229,.12); }}
   td.lin {{ white-space:normal; min-width:170px; vertical-align:top; font-size:11.5px; color:{INK2}; }}
   td.lin div {{ margin-top:4px; line-height:1.4; }}
   .isn {{ font-size:10.5px; color:{MUTED}; margin-top:3px; }}
-  .tg {{ display:inline-block; font:600 9.5px 'JetBrains Mono',monospace; letter-spacing:.06em; text-transform:uppercase;
+  .tg {{ display:inline-block; font:600 9.5px '{FONT_MONO}',monospace; letter-spacing:.06em; text-transform:uppercase;
     border-radius:5px; padding:2px 6px; }}
   .tg-database {{ color:#86b6ef; background:rgba(57,135,229,.15); }}
   .tg-issuer {{ color:#7fd17f; background:rgba(12,163,12,.14); }}
@@ -1743,7 +1798,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .tg-none {{ color:{MUTED}; background:rgba(255,255,255,.04); }}
   .simpos {{ font-size:12.5px; margin-bottom:6px; color:#86b6ef; }}
   .simpos b {{ color:{INK}; font-weight:600; }}
-  .simpos span {{ display:block; font:11px 'JetBrains Mono',monospace; color:{MUTED}; margin-left:14px; }}
+  .simpos span {{ display:block; font:11px '{FONT_MONO}',monospace; color:{MUTED}; margin-left:14px; }}
   .sp {{ margin-bottom:9px; }}
   .sp-top {{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12.5px; color:#86b6ef; }}
   .sp-nm {{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
@@ -1753,39 +1808,37 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .sp-x:hover {{ color:#fff; border-color:rgba(230,103,103,.6); background:rgba(230,103,103,.18); }}
   .sp-ctl {{ display:flex; align-items:center; gap:8px; margin:4px 0 0 14px; }}
   .sp-val {{ width:96px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:7px;
-            color:{INK}; padding:3px 7px; font:11.5px 'JetBrains Mono',monospace; outline:none; }}
+            color:{INK}; padding:3px 7px; font:11.5px '{FONT_MONO}',monospace; outline:none; }}
   .sp-val:hover {{ border-color:rgba(57,135,229,.45); }}
   .sp-val:focus {{ border-color:{BLUE}; box-shadow:0 0 0 3px rgba(57,135,229,.15); }}
   .sp-val {{ -moz-appearance:textfield; appearance:textfield; }}
   .sp-val::-webkit-inner-spin-button, .sp-val::-webkit-outer-spin-button {{ -webkit-appearance:none; margin:0; }}
-  .sp-ctl span {{ font:11px 'JetBrains Mono',monospace; color:{MUTED}; }}
+  .sp-ctl span {{ font:11px '{FONT_MONO}',monospace; color:{MUTED}; }}
   .sp.busy {{ opacity:.4; pointer-events:none; }}
-  .dh {{ font:10px 'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase;
+  .dh {{ font:10px '{FONT_MONO}',monospace; letter-spacing:.14em; text-transform:uppercase;
         color:{MUTED}; margin:10px 0 6px; }}
   .drow {{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; gap:8px; }}
   .drow .nm {{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
-  .drow .up {{ color:#86b6ef; font-family:'JetBrains Mono',monospace; white-space:nowrap; }}
-  .drow .dn {{ color:{RED}; font-family:'JetBrains Mono',monospace; white-space:nowrap; }}
+  .drow .up {{ color:#86b6ef; font-family:'{FONT_MONO}',monospace; white-space:nowrap; }}
+  .drow .dn {{ color:{RED}; font-family:'{FONT_MONO}',monospace; white-space:nowrap; }}
   .empty {{ color:{MUTED}; font-size:12px; padding-bottom:8px; }}
   .btns {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }}
-  .btns button, .btns a {{ font:11px 'JetBrains Mono',monospace; color:{INK2}; white-space:nowrap;
+  .btns button, .btns a {{ font:11px '{FONT_MONO}',monospace; color:{INK2}; white-space:nowrap;
                  background:rgba(57,135,229,.08); border:1px solid rgba(57,135,229,.35); border-radius:9px;
                  padding:8px 4px; cursor:pointer; transition:all .15s; text-align:center; text-decoration:none; }}
   .btns button:hover, .btns a:hover {{ color:{INK}; background:rgba(57,135,229,.18); box-shadow:0 0 16px rgba(57,135,229,.35); }}
   .hud {{ position:absolute; z-index:4; pointer-events:none; text-align:center; left:50%; transform:translateX(-50%); }}
-  #title {{ top:14px; }}
-  #title .k {{ font:500 10.5px 'JetBrains Mono',monospace; letter-spacing:.22em; color:{BLUE}; text-transform:uppercase; }}
-  #title .v {{ font-size:28px; font-weight:700; letter-spacing:-.02em; margin-top:2px; }}
-  #title .s {{ font:12px 'JetBrains Mono',monospace; color:{INK2}; margin-top:2px; }}
-  #legend {{ bottom:12px; font:11px 'JetBrains Mono',monospace; color:{INK2}; white-space:nowrap; }}
+  #legend {{ bottom:12px; font:11px '{FONT_MONO}',monospace; color:{INK2}; white-space:nowrap; }}
+  #legend .lgk {{ font:13px '{FONT_SANS}',sans-serif; color:{INK2}; margin-bottom:8px; }}
+  #legend .lgk b {{ color:{INK}; font-weight:600; }}
+  #legend .lgk .sep {{ color:{MUTED}; margin:0 .6em; }}
   #legend .lg {{ display:flex; align-items:center; justify-content:center; gap:10px; }}
   #legend .bar {{ width:150px; height:6px; border-radius:6px; background:linear-gradient(90deg,{legend}); }}
   #legend .hint {{ color:{MUTED}; margin-top:6px; font-size:10.5px; }}
   #legend .credit {{ color:#86b6ef; margin-left:.9em; padding-left:.9em; border-left:1px solid rgba(255,255,255,.15);
                     text-decoration:none; pointer-events:auto; transition:color .15s, text-shadow .15s; }}
   #legend .credit:hover {{ color:{INK}; text-shadow:0 0 12px rgba(57,135,229,.8); }}
-  #title[hidden] {{ display:none; }}
-  .tt {{ font:12px 'JetBrains Mono',monospace; color:{MUTED}; background:{SURFACE};
+  .tt {{ font:12px '{FONT_MONO}',monospace; color:{MUTED}; background:{SURFACE};
         border:1px solid rgba(255,255,255,.15); border-radius:8px; padding:6px 10px; }}
 
   /* Positions inspector (hover a sector, country or region). It never takes the pointer: a hover-able panel
@@ -1797,17 +1850,17 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
           box-shadow:0 0 0 1px rgba(57,135,229,.15), 0 18px 50px rgba(0,0,0,.55), 0 0 30px rgba(57,135,229,.2);
           backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); overflow:hidden; }}
   #insp .ih {{ padding:12px 14px 10px; border-bottom:1px solid rgba(255,255,255,.07); }}
-  #insp .ik {{ font:500 10px 'JetBrains Mono',monospace; letter-spacing:.2em; text-transform:uppercase; color:{BLUE}; }}
+  #insp .ik {{ font:500 10px '{FONT_MONO}',monospace; letter-spacing:.2em; text-transform:uppercase; color:{BLUE}; }}
   #insp .ih b {{ display:block; font-size:15px; margin-top:2px; }}
-  #insp .ih span {{ font:11.5px 'JetBrains Mono',monospace; color:#86b6ef; }}
+  #insp .ih span {{ font:11.5px '{FONT_MONO}',monospace; color:#86b6ef; }}
   #insp .il {{ overflow-y:auto; padding:6px 6px 8px; scrollbar-width:thin; scrollbar-color:#2a3546 transparent; }}
   #insp .ir {{ display:flex; justify-content:space-between; gap:10px; padding:7px 8px; border-radius:8px; }}
-  #insp .more {{ font:10px 'JetBrains Mono',monospace; letter-spacing:.08em; color:{MUTED}; text-align:center;
+  #insp .more {{ font:10px '{FONT_MONO}',monospace; letter-spacing:.08em; color:{MUTED}; text-align:center;
                 padding:6px 0 8px; border-top:1px solid rgba(255,255,255,.06); }}
   #insp .ia {{ min-width:0; }}
   #insp .in {{ font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
   #insp .is {{ font-size:10.5px; color:{MUTED}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
-  #insp .iv {{ font:12px 'JetBrains Mono',monospace; color:#86b6ef; text-align:right; white-space:nowrap; }}
+  #insp .iv {{ font:12px '{FONT_MONO}',monospace; color:#86b6ef; text-align:right; white-space:nowrap; }}
   #insp .iv span {{ display:block; font-size:10.5px; color:{MUTED}; }}
 
   /* Detail windows */
@@ -1821,29 +1874,29 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   @keyframes pop {{ from {{ transform:scale(.97); opacity:0; }} to {{ transform:none; opacity:1; }} }}
   .mhead {{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px;
            border-bottom:1px solid rgba(255,255,255,.07); }}
-  .mhead h2 {{ margin:0; font:500 12px 'JetBrains Mono',monospace; letter-spacing:.2em; text-transform:uppercase; color:{BLUE}; }}
+  .mhead h2 {{ margin:0; font:500 12px '{FONT_MONO}',monospace; letter-spacing:.2em; text-transform:uppercase; color:{BLUE}; }}
   #mclose {{ background:none; border:1px solid rgba(255,255,255,.12); color:{INK2}; border-radius:8px;
             width:30px; height:30px; cursor:pointer; font-size:14px; }}
   #mclose:hover {{ color:{INK}; border-color:{BLUE}; }}
   #mbody {{ flex:1; overflow:auto; padding:16px 18px; }}
   .mg {{ display:grid; gap:20px; }}
   .mg.half {{ grid-template-columns:1fr 1fr; }}
-  .mh {{ font:10.5px 'JetBrains Mono',monospace; letter-spacing:.18em; text-transform:uppercase; color:{MUTED}; margin-bottom:8px; }}
+  .mh {{ font:10.5px '{FONT_MONO}',monospace; letter-spacing:.18em; text-transform:uppercase; color:{MUTED}; margin-bottom:8px; }}
   .simlist {{ display:flex; flex-wrap:wrap; gap:6px 24px; margin-bottom:14px; }}
   .tools {{ display:flex; gap:10px; margin-bottom:12px; }}
   .tools input {{ flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:9px;
-                 color:{INK}; padding:8px 12px; font:12.5px Inter,sans-serif; outline:none; }}
+                 color:{INK}; padding:8px 12px; font:12.5px '{FONT_SANS}',sans-serif; outline:none; }}
   .tools input:focus {{ border-color:{BLUE}; }}
-  .tools button {{ font:12px 'JetBrains Mono',monospace; color:{INK2}; background:rgba(57,135,229,.1);
+  .tools button {{ font:12px '{FONT_MONO}',monospace; color:{INK2}; background:rgba(57,135,229,.1);
                   border:1px solid rgba(57,135,229,.4); border-radius:9px; padding:8px 12px; cursor:pointer; }}
   .tools button:hover {{ color:{INK}; }}
   table {{ width:100%; border-collapse:collapse; font-size:12.5px; }}
-  th {{ position:sticky; top:-16px; background:#10141b; text-align:left; font:500 10.5px 'JetBrains Mono',monospace;
+  th {{ position:sticky; top:-16px; background:#10141b; text-align:left; font:500 10.5px '{FONT_MONO}',monospace;
        letter-spacing:.12em; text-transform:uppercase; color:{MUTED}; padding:9px 10px; cursor:pointer;
        border-bottom:1px solid rgba(255,255,255,.08); white-space:nowrap; }}
   th.on {{ color:{BLUE}; }}
   td {{ padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.045); white-space:nowrap; }}
-  td.m {{ font-family:'JetBrains Mono',monospace; font-size:12px; color:{INK2}; }}
+  td.m {{ font-family:'{FONT_MONO}',monospace; font-size:12px; color:{INK2}; }}
   td.src {{ font-size:11px; color:{MUTED}; max-width:280px; overflow:hidden; text-overflow:ellipsis; }}
   td.w {{ min-width:150px; }}
   td.w .wb {{ display:inline-block; vertical-align:middle; width:80px; height:4px; border-radius:4px;
@@ -1865,11 +1918,11 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
 </style></head><body class="{'demo' if demo else ''}">
 <div id="stage">
   <div id="globe"></div><div id="glow"></div>
-  <div class="hud" id="title"{" hidden" if demo else ""}><div class="k">{title_k}</div><div class="v">{title_v}</div>
-    <div class="s">largest · {html.escape(top)}</div></div>
   <div class="col" id="left">{cards(left)}</div>
   <div class="col" id="right">{cards(right)}</div>
-  <div class="hud" id="legend"><div class="lg"><span>{wmin:.1f}%</span><div class="bar"></div>
+  <div class="hud" id="legend">
+    <div class="lgk"><b>{len(g)}</b> countries on the map<span class="sep">·</span>largest <b>{html.escape(top)}</b></div>
+    <div class="lg"><span>{wmin:.1f}%</span><div class="bar"></div>
     <span>{wmax:.1f}%</span></div>
     <div class="hint">{hint}<a class="credit" href="https://www.linkedin.com/in/gabin-le/" target="_blank"
       rel="noopener noreferrer" title="Gabin Lê on LinkedIn">Made by Gabin Lê · 2026 ↗</a></div></div>
@@ -2632,15 +2685,21 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 
 .st-key-landing > :first-child {{ position: absolute !important; top: 4vh; left: 0; right: 1.5rem; }}  /* the nav */
 .lnav {{ display: flex; align-items: center; justify-content: space-between; }}
-.lnav .logo {{ font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; color: {INK}; }}
-.lnav .logo i {{ font-style: normal; color: {BLUE}; margin-right: .35rem; }}
-.lnav .chip {{ font: 500 10.5px 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase;
+.lnav .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 700; font-size: 1.3rem; line-height: 1; letter-spacing: -.01em; }}
+{LOGO_FX_CSS}
+.lnav .logo i {{ display: inline-flex; position: relative; top: -.06em; font-style: normal; color: {BLUE}; margin-right: .35rem; }}
+.gh {{ display: inline-flex; margin-top: 1rem; align-items: center; gap: .5rem; font: 500 12px '{FONT_SANS}', sans-serif; color: {INK2} !important;
+            text-decoration: none !important; border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
+            padding: .4rem .85rem; background: rgba(255,255,255,.04); transition: all .2s; }}
+.gh:hover {{ color: {INK} !important; border-color: rgba(57,135,229,.6); background: rgba(57,135,229,.12); }}
+.lnav .chip {{ font: 500 10.5px '{FONT_MONO}', monospace; letter-spacing: .14em; text-transform: uppercase;
               color: #86b6ef; border: 1px solid rgba(57,135,229,.4); border-radius: 999px; padding: .3rem .7rem;
               background: rgba(57,135,229,.08); }}
-.leyebrow {{ font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .24em; text-transform: uppercase;
+.leyebrow {{ font: 500 11px '{FONT_MONO}', monospace; letter-spacing: .24em; text-transform: uppercase;
             color: {BLUE}; margin-bottom: .7rem; display: flex; align-items: center; gap: .6rem; }}
 .leyebrow::before {{ content: ""; width: 26px; height: 1px; background: {BLUE}; }}
-.lh1 {{ font-size: clamp(2.4rem, 4.4vw, 4.2rem) !important; line-height: 1.02 !important; font-weight: 700 !important;
+.lh1 {{ font-family: '{FONT_DISPLAY}', '{FONT_SANS}', sans-serif !important;
+       font-size: clamp(2.4rem, 4.4vw, 4.2rem) !important; line-height: 1.02 !important; font-weight: 700 !important;
        letter-spacing: -.045em; margin: 0 0 1rem !important; padding: 0 !important; color: {INK}; }}
 .lh1 span {{ background: linear-gradient(90deg, {BLUE} 0%, #86b6ef 55%, #cde2fb 100%);
             -webkit-background-clip: text; background-clip: text; color: transparent; }}
@@ -2657,18 +2716,18 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 .lrow {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: .4rem; }}
 .lbox {{ border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: .9rem 1rem;
         background: rgba(255,255,255,.025); }}
-.lk {{ font: 500 10px 'JetBrains Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: {MUTED};
+.lk {{ font: 500 10px '{FONT_MONO}', monospace; letter-spacing: .2em; text-transform: uppercase; color: {MUTED};
       margin-bottom: .6rem; }}
-.lbox table {{ width: 100%; border-collapse: collapse; font: 12px 'JetBrains Mono', monospace; color: {INK2}; }}
+.lbox table {{ width: 100%; border-collapse: collapse; font: 12px '{FONT_MONO}', monospace; color: {INK2}; }}
 .lbox th {{ text-align: left; color: {BLUE}; font-weight: 500; padding: 0 0 .35rem; }}
 .lbox td {{ padding: .2rem 0; border-top: 1px solid rgba(255,255,255,.05); }}
 .lstep {{ display: flex; gap: .7rem; align-items: baseline; font-size: .86rem; color: {INK2}; margin-bottom: .35rem; }}
-.lstep b {{ font: 600 11px 'JetBrains Mono', monospace; color: {BLUE}; }}
-.lfoot {{ display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font: 11px 'JetBrains Mono', monospace; color: {MUTED};
+.lstep b {{ font: 600 11px '{FONT_MONO}', monospace; color: {BLUE}; }}
+.lfoot {{ display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font: 11px '{FONT_MONO}', monospace; color: {MUTED};
          margin-top: .4rem; }}
 .lfoot span::before {{ content: "◆ "; color: {BLUE}; }}
 .st-key-demo button {{ padding: 0 !important; min-height: 0 !important; }}
-.st-key-demo button p {{ font: 600 13px 'JetBrains Mono', monospace !important; letter-spacing: .04em; color: #86b6ef; }}
+.st-key-demo button p {{ font: 600 13px '{FONT_MONO}', monospace !important; letter-spacing: .04em; color: #86b6ef; }}
 .st-key-demo button:hover p {{ color: {INK}; text-shadow: 0 0 14px rgba(57,135,229,.8); }}
 </style>
 """
@@ -2676,10 +2735,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 
 def landing():
     """Full-screen landing page: pitch and upload on the left, the live demo globe on the right."""
+    boot = None if st.session_state.get("booted") else show_boot()  # first visit only: not on every rerun
     st.markdown(LANDING_CSS, unsafe_allow_html=True)
     left, right = st.columns([5, 7], gap="small")
     with left, st.container(key="landing"):
-        st.markdown('<div class="lnav"><span class="logo"><i>◆</i>PortfolioScan</span>'
+        st.markdown(f'<div class="lnav"><span class="logo">{LOGO}</span>'
                     '</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="leyebrow">Portfolio intelligence</div>'
@@ -2706,7 +2766,8 @@ def landing():
             '<div class="lstep"><b>02</b>Live scan across 3 sources</div>'
             '<div class="lstep"><b>03</b>Explore, then test new positions</div></div></div>'
             '<div class="lfoot"><span>45k+ stocks indexed</span><span>2,600+ ETFs</span>'
-            '<span>SCPI, euro funds &amp; cash</span></div>',
+            '<span>SCPI, euro funds &amp; cash</span></div>'
+            f'<a class="gh" href="{GITHUB_URL}" target="_blank" rel="noopener noreferrer">{GITHUB_ICON}GitHub</a>',
             unsafe_allow_html=True,
         )
     with right:
@@ -2714,6 +2775,9 @@ def landing():
             cockpit(demo_frame(), demo=True)
         except Exception:  # noqa: BLE001 — the showcase is optional (e.g. offline on first run)
             pass
+    if boot is not None:
+        hide_boot(boot)
+        st.session_state.booted = True
     return files if start else None
 
 
@@ -2847,7 +2911,7 @@ def on_bridge():
         st.session_state.flash = (f"Correction removed for {position_name(msg['isin'])}", ":material/undo:")
     elif msg.get("action") == "restart":
         st.session_state.update(pf=None, sims=[], pending_sim=None, log=[], imports=None, import_step=0,
-                                import_done=[])
+                                import_done=[], results_seen=False)
     elif msg.get("action") in ("sim_remove", "sim_value"):
         sims, i = st.session_state.sims, msg.get("index")
         if not isinstance(i, int) or not 0 <= i < len(sims):
@@ -2949,6 +3013,7 @@ if ps:
     st.rerun()
 
 # ── Build views ──────────────────────────────────────────────────────────────
+results_boot = None if st.session_state.get("results_seen") else show_boot()  # first display of these results
 base_pos = portfolio.assign(origin="Portfolio")
 sim_pos = pd.DataFrame(st.session_state.sims or [], columns=["isin", "value"]).assign(origin="Simulated",
                                                                                       account="Simulation")
@@ -2959,6 +3024,8 @@ with_sim, excluded_sim = build_frame(pd.concat([base_pos, sim_pos], ignore_index
 if current.empty:
     hero()
     st.error("None of the positions could be analysed (no stock, and no ETF or fund we have data for).")
+    if results_boot is not None:
+        results_boot[0].empty()
     st.stop()
 
 df, excl = with_sim, excluded_sim
@@ -2996,3 +3063,6 @@ try:
 except Exception as e:  # noqa: BLE001 — e.g. no internet for the first shape download
     hero()
     st.error(f"Globe unavailable: {e}")
+if results_boot is not None:
+    hide_boot(results_boot)
+    st.session_state.results_seen = True
