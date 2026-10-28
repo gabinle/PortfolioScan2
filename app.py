@@ -24,6 +24,8 @@ import yfinance as yf
 from shapely.geometry import MultiPolygon, Polygon, shape
 from shapely.geometry.polygon import orient
 
+import metrics
+import rebalance
 from importer import SEPARATORS, column_labels, detect, extract, read_tables
 
 LOGO_PNG = Path(__file__).parent / "assets" / "logo.png"   # static frame, browser-tab icon
@@ -55,36 +57,47 @@ GITHUB_URL = "https://github.com/gabinle/PortfolioScan2"
 GITHUB_ICON = ('<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>')
 PLANE = "#0a0c10"
 
-# Loading screen: covers the page while the first run builds it (logo on the page background), removed once it is done.
-# The animation also fades it out by itself after 20 s, so an error can never leave the page hidden.
-BOOT_HTML = f"""<style>
-.stElementContainer:has(.boot) {{ position: fixed !important; height: 0 !important; margin: 0 !important; }}
+# Loading screen: covers the page while the results of an analysis are built (logo on the page background).
+# The page hides it by itself after BOOT_SECONDS (CSS animation, timed from when it appears on screen), so an error can
+# never leave the page hidden; the server keeps it a little longer so the animation can play, and removes it.
+BOOT_SECONDS = 2   # how long the loading screen shows (before the first results of a portfolio)
+def boot_css(seconds: float) -> str:
+    return f"""<style>
+.stElementContainer:has(.boot) {{ position: fixed !important; height: 0 !important; margin: 0 !important;
+                                    opacity: 1 !important; animation: none !important; transition: none !important; }}
 .boot {{ position: fixed; inset: 0; z-index: 999999; background: {PLANE}; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 1.4rem; animation: bootaway .5s ease 20s forwards; }}
+          align-items: center; justify-content: center; gap: 1.4rem; animation: bootaway .3s ease {seconds - .3}s forwards; }}
 .boot img {{ width: 112px; height: 112px; }}
 .boot .bar {{ width: 120px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,.08); }}
 .boot .bar::after {{ content: ""; display: block; width: 40%; height: 100%; border-radius: 2px; background: #86b6ef;
                      animation: bootbar 1.4s ease-in-out infinite; }}
 @keyframes bootbar {{ from {{ transform: translateX(-100%); }} to {{ transform: translateX(250%); }} }}
 @keyframes bootaway {{ to {{ opacity: 0; visibility: hidden; }} }}
-</style>
-<div class="boot"><img alt="" src="data:image/svg+xml;base64,{base64.b64encode(LOGO_SVG_FILE.read_bytes()).decode()}">
+</style>"""
+
+
+
+BOOT_HTML = f"""<div class="boot"><img alt="" src="data:image/svg+xml;base64,{base64.b64encode(LOGO_SVG_FILE.read_bytes()).decode()}">
 <div class="bar"></div></div>"""
-BOOT_SECONDS = 2   # the loading screen stays at least this long (first visit, and before the first results)
 
 
-def show_boot():
-    """Cover the page with the loading screen; returns what hide_boot needs."""
+def show_boot(active: bool, seconds: float = BOOT_SECONDS):
+    """Reserve the loading screen's place in the page, and fill it when `active`. The two elements are always added,
+    even when idle: Streamlit matches elements by position, so a page that changes shape between runs would reload its
+    iframes (the globe would restart on every upload)."""
+    st.markdown(boot_css(seconds), unsafe_allow_html=True)  # apart: Streamlit hides any block that holds a <style>
     holder = st.empty()
-    holder.markdown(BOOT_HTML, unsafe_allow_html=True)
-    return holder, time.time()
+    if active:
+        holder.markdown(BOOT_HTML, unsafe_allow_html=True)
+    return holder, time.time(), active, seconds
 
 
 def hide_boot(boot):
-    """Remove the loading screen once the page is built, after BOOT_SECONDS at the earliest."""
-    holder, since = boot
-    time.sleep(max(0.0, BOOT_SECONDS - (time.time() - since)))
-    holder.empty()
+    """Remove the loading screen once the page is built and its CSS fade-out has played."""
+    holder, since, active, seconds = boot
+    if active:
+        time.sleep(max(0.0, seconds + 0.8 - (time.time() - since)))
+        holder.empty()
 STAGE = "#07090d"   # page / globe backdrop
 SURFACE = "#12151b"
 INK = "#f0efec"
@@ -438,6 +451,8 @@ def parse_portfolio(data: bytes):
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEMO_FILE = DATA_DIR / "demo_portfolio.csv"     # isin,value,name,account: 3 accounts, stocks, ETFs, SCPI, cash
 DEMO_RESULTS = DATA_DIR / "demo_results.json"   # its lookups, pre-scanned so the demo opens instantly
+DEMO_FUNDAMENTALS = DATA_DIR / "demo_fundamentals.json"  # their P/E, yield, market cap...: ISIN -> fields
+ETF_COSTS = DATA_DIR / "etf_costs.csv.gz"        # each ETF's annual fee, P/E and yield (update script)
 
 
 def load_demo():
@@ -483,6 +498,43 @@ def _etf_snapshot(stamp) -> dict:  # noqa: ARG001 — stamp only keys the cache
         if r.isin in out and r.weight > 0:  # short derivative legs carry negative weights
             out[r.isin][r.dimension][r.label] = r.weight
     return out
+
+
+@st.cache_resource(show_spinner=False)
+def _etf_costs(stamp) -> dict:  # noqa: ARG001 — stamp only keys the cache
+    return metrics.load_costs(ETF_COSTS)
+
+
+@st.cache_resource(show_spinner=False)
+def _demo_fundamentals(stamp) -> dict:  # noqa: ARG001
+    return json.loads(DEMO_FUNDAMENTALS.read_text(encoding="utf-8")) if DEMO_FUNDAMENTALS.exists() else {}
+
+
+def position_kinds(isins) -> dict:
+    """ISIN -> "stock" | "etf" | "special" (SCPI, euro funds, cash), and whether an ETF is in the snapshot."""
+    snap, res, out = load_etf_snapshot(), st.session_state.results, {}
+    for i in isins:
+        out[i] = "special" if special_kind(i) else "etf" if i in snap or res.get(i, {}).get("etf") else "stock"
+    return out
+
+
+def fund_data_needed(isins) -> int:
+    """How many positions still have to be looked up on Yahoo for the metrics (used to size the loading screen)."""
+    known = {**_demo_fundamentals(file_stamp(DEMO_FUNDAMENTALS)), **st.session_state.get("fund_cache", {})}
+    snap = load_etf_snapshot()
+    return sum(1 for i, k in position_kinds(isins).items() if k != "special" and i not in known and i not in snap)
+
+
+def position_fundamentals(items: list[dict]) -> dict:
+    """ISIN -> valuation / fee fields for the metrics window. A position Yahoo knows nothing about is remembered as
+    empty for the session, so a rerun does not ask again."""
+    cache = st.session_state.setdefault("fund_cache", {})
+    known = {**_demo_fundamentals(file_stamp(DEMO_FUNDAMENTALS)), **cache}
+    got = metrics.gather(items, _etf_costs(file_stamp(ETF_COSTS)), known)
+    for it in items:
+        if it["k"] != "special" and it["i"] not in known:
+            cache[it["i"]] = got.get(it["i"], {})
+    return {i: v for i, v in got.items() if v}
 
 
 def position_name(isin: str) -> str:
@@ -1540,6 +1592,15 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
                 .sort_values("value", ascending=False))
     resolved = int((holdings["status"] == "ok").sum())
     asset_w = df.groupby("asset")["value"].sum().div(total).sort_values(ascending=False)
+    rb = {} if demo else rebalance.payload(df, {"c": list(country_w.index), "r": list(region_w.index),
+                                                "s": list(sec_w.index), "a": list(asset_w.index)}, list(NEUTRAL))
+    mt = {}
+    if not demo:
+        kinds = position_kinds(holdings["isin"])
+        snap = load_etf_snapshot()
+        items = [{"i": h.isin, "k": kinds[h.isin], "t": h.ticker if isinstance(h.ticker, str) else "", "snap": h.isin in snap}
+                 for h in holdings.itertuples()]
+        mt = metrics.payload(position_fundamentals(items), items, metrics.benchmark(snap), [CASH_LABEL])
 
     def shares(sub, col, n=10):
         return [[k, 100 * float(v)] for k, v in weights_by(sub, col).head(n).items()]
@@ -1573,6 +1634,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
         <div><b>{df.loc[~df['sector'].isin(NEUTRAL), 'sector'].nunique()}</b><span>sectors</span></div>
         <div><b>{resolved / len(holdings):.0%}</b><span>resolved</span></div>
       </div>{note_html}
+      <button class="cta alt" data-open="rebalance" data-title="Rebalance Assistant">⚖ Rebalance Assistant</button>
       <button class="cta" data-open="test" data-title="Test a position" data-small="1">＋ Test a position</button>"""
     left = [
         ("Portfolio", kpis),
@@ -1587,8 +1649,8 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
              ("Top sectors", _rows([(k, 100 * v, "", None, None) for k, v in sec_w.head(7).items()], "s"))]
     buttons = [("sectors", "▦ Sectors", "Sectors"), ("countries", "◉ Countries", "Countries & regions"),
                ("holdings", "≡ Holdings", "Holdings"), ("accounts", "▤ Accounts", "Accounts"),
-               ("log", "› Log", "Scan log"),
-               ("issues", f"⚠ Issues · {len(issues)}", "Data issues")]
+               ("metrics", "∑ Metrics", "Portfolio metrics"),
+               ("data", f"⚠ Data · {len(issues)}" if issues else "✓ Data", "Data issues & log")]
     charts = {"tree": treemap_spec(df),
               "ctrybars": bars_spec(country_w, top=20), "regbars": bars_spec(region_w, top=20)}
     sim_tpl = ""
@@ -1637,8 +1699,15 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
                 return f"<h3>{t}</h3>"
             k, title = title_opens[t]
             return f'<h3 class="lnk" data-open="{k}" data-title="{title}" title="Open {title}">{t}</h3>'
-        return '<div class="stack">' + "".join(
-            f'<section class="card">{head(t)}{body}</section>' for t, body in items) + "</div>"
+        whole = {} if demo else {"Accounts": ("accounts", "Accounts")}  # the whole card opens its window
+
+        def card(t, body):
+            if t not in whole:
+                return f'<section class="card">{head(t)}{body}</section>'
+            k, title = whole[t]
+            return (f'<section class="card clickable" data-open="{k}" data-title="{title}" title="Open {title}">'
+                    f'<h3 class="lnk">{t}</h3>{body}</section>')
+        return '<div class="stack">' + "".join(card(t, body) for t, body in items) + "</div>"
 
     positions = [{"n": h.label, "i": h.isin, "t": h.ticker, "c": h.country, "s": h.sector, "r": h.region,
                   "v": float(h.value), "p": 100 * float(h.weight), "src": h.sources}
@@ -1700,12 +1769,25 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .card h3 {{ margin:0 0 10px; font:500 10.5px '{FONT_MONO}',monospace; letter-spacing:.2em;
              text-transform:uppercase; color:{BLUE}; }}
   .card h3.lnk {{ cursor:pointer; transition:color .15s; }}
+  .card.clickable {{ cursor:pointer; transition:border-color .15s, background .15s; }}
+  .card.clickable:hover {{ border-color:rgba(57,135,229,.5); background:rgba(16,22,32,.82); }}
+  .card.clickable:hover h3.lnk {{ color:{INK}; }}
   .card h3.lnk::after {{ content:" ›"; }}
   .card h3.lnk:hover {{ color:{INK}; }}
   .cta {{ width:100%; margin:10px 0 4px; font:600 12.5px '{FONT_SANS}',sans-serif; color:#fff; cursor:pointer;
          background:linear-gradient(90deg,#1c5cab,{BLUE}); border:1px solid rgba(134,182,239,.5); border-radius:10px;
          padding:9px 12px; box-shadow:0 0 18px rgba(57,135,229,.3); transition:all .15s; }}
   .cta:hover {{ box-shadow:0 0 26px rgba(57,135,229,.55); filter:brightness(1.08); }}
+  .cta.alt {{ position:relative; overflow:hidden; color:#cde2fb; background:rgba(57,135,229,.12); border-color:rgba(134,182,239,.55);
+             box-shadow:0 0 0 0 rgba(57,135,229,.45); animation:ctapulse 2.8s ease-out infinite; }}
+  .cta.alt::after {{ content:""; position:absolute; top:0; bottom:0; width:42%; left:-60%; pointer-events:none;
+                    background:linear-gradient(100deg, transparent, rgba(205,226,251,.38), transparent);
+                    transform:skewX(-18deg); animation:ctashine 3.6s ease-in-out infinite; }}
+  .cta.alt:hover {{ color:#fff; background:rgba(57,135,229,.28); animation-play-state:paused; }}
+  @keyframes ctashine {{ 0%, 55% {{ left:-60%; }} 100% {{ left:130%; }} }}
+  @keyframes ctapulse {{ 0% {{ box-shadow:0 0 0 0 rgba(57,135,229,.45); }} 70%, 100% {{ box-shadow:0 0 0 9px rgba(57,135,229,0); }} }}
+  @media (prefers-reduced-motion: reduce) {{ .cta.alt, .cta.alt::after {{ animation:none; }} }}
+  .cta + .cta {{ margin-top:6px; }}
   .btns .restart {{ border-color:rgba(230,103,103,.4); background:rgba(230,103,103,.07); }}
   .btns .restart:hover {{ background:rgba(230,103,103,.16); box-shadow:0 0 16px rgba(230,103,103,.3); }}
   .btns .restart.armed {{ color:#fff; background:rgba(230,103,103,.35); }}
@@ -1904,6 +1986,8 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   td.w .wb div {{ height:100%; border-radius:4px; background:linear-gradient(90deg,#1c5cab,#5598e7); }}
   tr:hover td {{ background:rgba(57,135,229,.06); }}
   {TERM_CSS}
+  {rebalance.css(BLUE, INK, INK2, MUTED, RED, FONT_MONO, FONT_SANS)}
+  {metrics.css(BLUE, INK, INK2, MUTED, RED, FONT_MONO, FONT_SANS)}
   #mbody .term-body {{ height:calc(min(780px, 90vh) - 180px); }}
 
   {"" if demo else f'''@media (max-width: 980px) {{
@@ -1940,11 +2024,13 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
 <template id="t-holdings"><div class="tools"><input id="q" placeholder="Filter by name, ISIN, ticker, country, sector…">
   <button id="csv">⤓ Export CSV</button></div><table><thead id="hh"></thead><tbody id="hb"></tbody></table></template>
 <template id="t-sim">{sim_tpl}</template>
-<template id="t-log"><div class="tabs"><button class="tab on" data-tab="scan">Scan log</button>
-  <button class="tab" data-tab="src">Data sources</button></div>
-  <div class="tabp" data-p="scan">{render_terminal(st.session_state.log, live=False)}</div>
+<template id="t-data"><div class="tabs"><button class="tab on" data-tab="iss">Issues · {len(issues)}</button>
+  <button class="tab" data-tab="scan">Scan log</button><button class="tab" data-tab="src">Data sources</button></div>
+  <div class="tabp" data-p="iss">{issues_tpl}</div>
+  <div class="tabp" data-p="scan" hidden>{render_terminal(st.session_state.log, live=False)}</div>
   <div class="tabp" data-p="src" hidden>{lineage_tpl}</div></template>
-<template id="t-issues">{issues_tpl}</template>
+<template id="t-rebalance">{rebalance.TEMPLATE}</template>
+<template id="t-metrics">{metrics.TEMPLATE}</template>
 <template id="t-accounts"><div class="acc"><div class="acc-list" id="acc-list"></div>
   <div class="acc-detail" id="acc-detail"></div></div></template>
 <template id="t-test"><form class="tform" id="tf" autocomplete="off">
@@ -1966,6 +2052,8 @@ const CW = {_js_json([[k, 100 * float(v)] for k, v in country_w.items()])};
 const RW = {_js_json([[k, 100 * float(v)] for k, v in region_w.items()])};
 const BAR = {{ grad: {_js_json(BAR_GRADIENT)}, muted: {_js_json(MUTED)} }};
 const ACC = {_js_json(accounts)};
+const RB = {_js_json(rb)};
+const MT = {metrics.js_data(mt)};
 const NEUTRAL = {_js_json(list(NEUTRAL))}, NLABEL = {_js_json(NEUTRAL_LABEL)};  // per country / sector / region: an ETF appears once, with its share
 const CH = {{}};
 const TREE = {{ chart: null }};  // the live treemap, so its label formatter can read tile sizes
@@ -2023,7 +2111,7 @@ function showInsp(k, v, x, y, side, anchor) {{
   clearTimeout(hideT);
   inspAnchor = anchor;
   if (inspKey === k + '|' + v && !insp.hidden) return;
-  const list = PI[k].filter(p => p[k] === v);
+  const list = (PI[k] || []).filter(p => p[k] === v);
   if (!list.length) {{ hideInsp(); return; }}
   inspKey = k + '|' + v;
   const tot = list.reduce((a, p) => a + p.p, 0);
@@ -2146,9 +2234,10 @@ function openModal(id, title, small) {{
     }});
     if (id === 'holdings') initTable();
     if (id === 'accounts') initAccounts();
-    if (id === 'issues') initFix();
+    if (id === 'data') {{ initFix(); initTabs(); }}
+    if (id === 'rebalance') initRebalance();
+    if (id === 'metrics') initMetrics();
     if (id === 'countries') initCountries();
-    if (id === 'log') initTabs();
     if (id === 'test') initTest();
   }});
 }}
@@ -2240,7 +2329,11 @@ function initCountries() {{
   q.focus();
 }}
 
-// ── log window tabs ──
+{rebalance.JS}
+
+{metrics.JS}
+
+// ── data window tabs ──
 function initTabs() {{
   mbody.querySelectorAll('.tab').forEach(t => t.onclick = () => {{
     mbody.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
@@ -2294,7 +2387,8 @@ function initFix() {{
 
 // ── accounts window: account list on the left, the picked account's breakdowns on the right ──
 let accPick = 0;
-document.querySelectorAll('[data-acc]').forEach(r => r.addEventListener('click', () => {{
+document.querySelectorAll('[data-acc]').forEach(r => r.addEventListener('click', e => {{
+  e.stopPropagation();  // the card around the rows opens the same window
   accPick = +r.dataset.acc; openModal('accounts', 'Accounts');
 }}));
 function accRows(list, grey = true, dim = '') {{
@@ -2735,7 +2829,6 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 
 def landing():
     """Full-screen landing page: pitch and upload on the left, the live demo globe on the right."""
-    boot = None if st.session_state.get("booted") else show_boot()  # first visit only: not on every rerun
     st.markdown(LANDING_CSS, unsafe_allow_html=True)
     left, right = st.columns([5, 7], gap="small")
     with left, st.container(key="landing"):
@@ -2775,9 +2868,6 @@ def landing():
             cockpit(demo_frame(), demo=True)
         except Exception:  # noqa: BLE001 — the showcase is optional (e.g. offline on first run)
             pass
-    if boot is not None:
-        hide_boot(boot)
-        st.session_state.booted = True
     return files if start else None
 
 
@@ -3013,7 +3103,11 @@ if ps:
     st.rerun()
 
 # ── Build views ──────────────────────────────────────────────────────────────
-results_boot = None if st.session_state.get("results_seen") else show_boot()  # first display of these results
+# Shown for the first display of these results. Looking up their valuation data on Yahoo (about 8 at a time) can take
+# longer than the usual 2 seconds, so the screen stays up for that long.
+_lookups = fund_data_needed(wanted)
+results_boot = show_boot(not st.session_state.get("results_seen"),
+                         BOOT_SECONDS if not _lookups else min(20.0, BOOT_SECONDS + 1.5 + 1.3 * -(-_lookups // 8)))
 base_pos = portfolio.assign(origin="Portfolio")
 sim_pos = pd.DataFrame(st.session_state.sims or [], columns=["isin", "value"]).assign(origin="Simulated",
                                                                                       account="Simulation")
@@ -3024,8 +3118,7 @@ with_sim, excluded_sim = build_frame(pd.concat([base_pos, sim_pos], ignore_index
 if current.empty:
     hero()
     st.error("None of the positions could be analysed (no stock, and no ETF or fund we have data for).")
-    if results_boot is not None:
-        results_boot[0].empty()
+    results_boot[0].empty()
     st.stop()
 
 df, excl = with_sim, excluded_sim
@@ -3063,6 +3156,5 @@ try:
 except Exception as e:  # noqa: BLE001 — e.g. no internet for the first shape download
     hero()
     st.error(f"Globe unavailable: {e}")
-if results_boot is not None:
-    hide_boot(results_boot)
-    st.session_state.results_seen = True
+hide_boot(results_boot)
+st.session_state.results_seen = True

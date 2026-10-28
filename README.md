@@ -17,10 +17,12 @@ Made by [Gabin Lê](https://www.linkedin.com/in/gabin-le/) · 2026
 5. [Detail windows](#detail-windows)
 6. [Data issues and manual corrections](#data-issues-and-manual-corrections)
 7. [Testing a position](#testing-a-position)
-8. [Demo portfolio](#demo-portfolio)
-9. [Privacy](#privacy)
-10. [Limitations](#limitations)
-11. [Run locally](#run-locally) · [Deploy](#deploy-on-streamlit-community-cloud) ·
+8. [Rebalance Assistant](#rebalance-assistant)
+9. [Metrics](#metrics)
+10. [Demo portfolio](#demo-portfolio)
+11. [Privacy](#privacy)
+12. [Limitations](#limitations)
+13. [Run locally](#run-locally) · [Deploy](#deploy-on-streamlit-community-cloud) ·
     [Project layout](#project-layout) · [Refreshing the data](#refreshing-the-data)
 
 ---
@@ -174,8 +176,9 @@ A full-screen spinning globe, coloured by the weight of each country, with cards
 | **◉ Countries** | Bar charts of every country and region. **Search box** to filter them. Hover a bar for its positions; **click a bar** to list every position in that country or region |
 | **≡ Holdings** | Every position with name, ISIN, ticker, country, sector, value, weight and sources; filter, sort by any column, **Export CSV** |
 | **▤ Accounts** | List of accounts; for the selected one: value, share, asset classes, top countries, top sectors and every position with its weight in the account. **Click a country or sector** to list that account's positions in it |
-| **› Log** | **Scan log**: every lookup of the scan, source by source. **Data sources**: for each position, where its name, country, sector and asset class come from |
-| **⚠ Issues** | Every missing or guessed piece of data, with manual correction (see below) |
+| **∑ Metrics** | Diversification, fees, valuation and income of the whole portfolio (see below) |
+| **⚠ Data** | Three tabs. **Issues**: every missing or guessed piece of data, with manual correction (see below). **Scan log**: every lookup of the scan, source by source. **Data sources**: for each position, where its name, country, sector and asset class come from |
+| **⚖ Rebalance Assistant** | Opened from the Portfolio card: what to buy with your next contribution to reach a target allocation (see below) |
 | **± Sim.** | Only with test positions: how they shift the sector and country weights |
 
 **Position lists** (opened from a country, region or account): each position with its account, its value in that
@@ -189,7 +192,7 @@ it was estimated from), *Manual*, *Your file*, *Not found*.
 
 ## Data issues and manual corrections
 
-The **⚠ Issues · N** window lists, sorted by weight and with a summary ("3 issues · 2.8% of the portfolio affected"):
+The **Issues** tab of the **⚠ Data** window lists, sorted by weight and with a summary ("3 issues · 2.8% of the portfolio affected"):
 
 - ETFs and funds with no data at all, and why (e.g. "yfinance: quoteType MUTUALFUND");
 - stocks not identified, or missing a country or a sector;
@@ -210,6 +213,60 @@ sources. They last for the session.
 **＋ Test a position**: enter an ISIN and a value. An ETF from the snapshot is added at once; any other ISIN is
 scanned first and added if it resolves to a stock or a Yahoo-estimated ETF. Test positions go into a "Simulation"
 account and show in the Simulation card and the **± Sim.** window.
+
+---
+
+## Rebalance Assistant
+
+Set a target allocation and an amount to invest; the assistant tells you exactly what to buy, line by line, to get
+closer to it **without selling anything** (selling is an option you switch on).
+
+- **Targets** mix freely: countries, regions, sectors and asset classes, for example 55% United States, 15% Europe,
+  12% Information Technology. **Start from my current** fills a dimension with today's top categories to edit.
+  Categories are measured through your funds (an ETF counts for each country and sector it holds).
+- **The plan** lists each line to buy (or sell) with its amount, its weight before and after, and which targets it
+  helps. **Export plan (CSV)** and **Copy** give you the list to place your orders.
+- **Options**: trade in at most N lines (a monthly contribution is rarely spread over 30 ETFs), round amounts to
+  10 / 50 / 100, leave out the lines you do not want to touch, and allow selling overweight lines. Selling is only
+  proposed when a target is off by more than half a point.
+- **Insights**: the average gap to your targets before and after; how much you would have to invest in total for
+  buying alone to fix an overweight (with this month's amount that may not be enough); how selling would compare;
+  the number of months of the same contribution to get within one point of every target (markets assumed flat);
+  and a warning when none of your lines gives exposure to a target.
+- **How it works**: the plan minimises the squared gap between each target and the portfolio's weight after the
+  trade, solved in your browser so it updates as you type. Your targets are remembered in your browser.
+
+---
+
+## Metrics
+
+The **∑ Metrics** window measures the portfolio as a whole. Funds are looked through, so an ETF counts for each country and
+sector it holds. Every figure has an ⓘ with its definition, and every figure built from incomplete data says how much
+of the portfolio it covers.
+
+**Diversification**
+- **Geographic and sector diversification**: the Herfindahl-Hirschman index (sum of squared weights, out of 10,000) and
+  the *effective number* of countries or sectors (1 / HHI), next to the same figure for the world index (MSCI ACWI).
+  Unknown and cash are left out.
+- **Position concentration**: largest line, top 5, top 10, effective number of positions.
+- **Home bias**: your weight in a country of your choice (France by default) against the world index.
+- **Emerging markets** and **currency exposure** (by the underlying country, not the fund's trading currency).
+- **Tilt against the world index**: biggest over- and underweights by country and sector, and the active share.
+- **Funds that may overlap**: pairs of funds with a near-identical country and sector breakdown. A hint only: the
+  data has no individual stocks.
+
+**Costs**
+- **Fund fees**: weighted annual fee (TER) of your ETFs and funds, the yearly amount, and the lines that cost most.
+  Trading fees per order (fixed, percent, minimum) are entered in the Rebalance Assistant, which shows the cost of its
+  plan.
+
+**Valuation and income**: P/E (trailing and forward), dividend income and yield, company size. The P/E is averaged
+the harmonic way (total price over total earnings); loss-making companies and impossible values are left out.
+
+**Where the numbers come from.** Stocks: Yahoo Finance, looked up when the results open (about 8 at a time, kept for a
+day). ETFs: `data/etf_costs.csv.gz` (annual fee from Amundi's data and Yahoo, P/E and yield from Yahoo), or Yahoo
+directly for an ETF that is not in the snapshot. Stocks have no fund fee; SCPI and euro funds have fees we do not know,
+so they are listed as missing. Your trading fees stay in your browser.
 
 ---
 
@@ -263,6 +320,8 @@ On Windows you can also double-click `run.bat`.
 |------|------------|
 | `app.py` | The app: scan, analysis, cockpit and detail windows |
 | `importer.py` | Reads broker exports and detects their columns, accounts and special lines |
+| `rebalance.py` | The Rebalance Assistant: exposure data, window and calculation |
+| `metrics.py` | The Metrics window: Yahoo valuation data, fees, world-index benchmark and the figures |
 | `run.bat` | Starts the app on Windows |
 | `.streamlit/config.toml` | Theme and the 5 MB upload limit |
 | `data/fd_equities.csv.gz` | FinanceDatabase snapshot: ISIN → ticker, name, country, sector |
@@ -272,6 +331,8 @@ On Windows you can also double-click `run.bat`.
 | `data/countries_50m.geojson` | Natural Earth country shapes for the globe |
 | `data/demo_portfolio.csv` | The demo portfolio (ISIN, value, name, account) |
 | `data/demo_results.json` | The demo stocks' pre-computed lookups, so the demo opens instantly |
+| `data/demo_fundamentals.json` | The demo stocks' P/E, yield and market cap, so its metrics open instantly |
+| `data/etf_costs.csv.gz` | Each ETF's annual fee, P/E and dividend yield |
 
 ## Refreshing the data
 
