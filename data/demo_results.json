@@ -1,1263 +1,704 @@
 {
- "US0378331005": {
-  "isin": "US0378331005",
-  "name": "Apple Inc.",
-  "country": "United States",
-  "sector": "Information Technology",
-  "ticker": "AAPL",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "US46625H1005": {
-  "isin": "US46625H1005",
-  "name": "JPMorgan Chase & Co.",
-  "country": "United States",
-  "sector": "Financials",
-  "ticker": "JPM",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "US30231G1022": {
-  "isin": "US30231G1022",
-  "name": "ExxonMobil Holdings Corporation",
-  "country": "United States",
-  "sector": "Energy",
-  "ticker": "XOM",
-  "src": {
-   "name": "yfinance",
-   "country": "yfinance",
-   "sector": "yfinance"
-  },
-  "status": "ok"
- },
- "CA7800871021": {
-  "isin": "CA7800871021",
-  "name": "Royal Bank of Canada",
-  "country": "Canada",
-  "sector": "Financials",
-  "ticker": "RY",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CA29250N1050": {
-  "isin": "CA29250N1050",
-  "name": "Enbridge Inc.",
-  "country": "Canada",
-  "sector": "Energy",
-  "ticker": "ENB",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "GB0009895292": {
-  "isin": "GB0009895292",
-  "name": "AstraZeneca PLC",
-  "country": "United Kingdom",
-  "sector": "Health Care",
-  "ticker": "AZN",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "GB00B10RZP78": {
-  "isin": "GB00B10RZP78",
-  "name": "UNILEVER PLC",
-  "country": "United Kingdom",
-  "sector": "Consumer Staples",
-  "ticker": "ULVR1USD",
-  "src": {
-   "name": "OpenFIGI",
-   "sector": "FinanceDatabase (name match)",
-   "country": "ISIN prefix"
-  },
-  "status": "ok"
- },
- "DE0007164600": {
-  "isin": "DE0007164600",
-  "name": "SAP SE",
-  "country": "Germany",
-  "sector": "Information Technology",
-  "ticker": "SAP",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "DE0007236101": {
-  "isin": "DE0007236101",
-  "name": "Siemens Aktiengesellschaft",
-  "country": "Germany",
-  "sector": "Industrials",
-  "ticker": "SMAWF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "FR0000121014": {
-  "isin": "FR0000121014",
-  "name": "LVMH Moët Hennessy - Louis Vuitton, Societe Europeenne",
-  "country": "France",
-  "sector": "Consumer Discretionary",
-  "ticker": "LVMHF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "FR0000120271": {
-  "isin": "FR0000120271",
-  "name": "TotalEnergies SE",
-  "country": "France",
-  "sector": "Energy",
-  "ticker": "TTE",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CH0038863350": {
-  "isin": "CH0038863350",
-  "name": "Nestle S.A.",
-  "country": "Switzerland",
-  "sector": "Consumer Staples",
-  "ticker": "NSRGF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CH0012005267": {
-  "isin": "CH0012005267",
-  "name": "Novartis AG",
-  "country": "Switzerland",
-  "sector": "Health Care",
-  "ticker": "NVS",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "NL0010273215": {
-  "isin": "NL0010273215",
-  "name": "ASML Holding N.V.",
-  "country": "Netherlands",
-  "sector": "Information Technology",
-  "ticker": "ASML",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "NL0011821202": {
-  "isin": "NL0011821202",
-  "name": "ING Groep N.V.",
-  "country": "Netherlands",
-  "sector": "Financials",
-  "ticker": "ING",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "ES0144580Y14": {
-  "isin": "ES0144580Y14",
-  "name": "Iberdrola, S.A.",
-  "country": "Spain",
-  "sector": "Utilities",
-  "ticker": "IBDSF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "ES0148396007": {
-  "isin": "ES0148396007",
-  "name": "Industria de Diseno Textil, S.A.",
-  "country": "Spain",
-  "sector": "Consumer Discretionary",
-  "ticker": "IDEXF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "IT0003128367": {
-  "isin": "IT0003128367",
-  "name": "Enel SpA",
-  "country": "Italy",
-  "sector": "Utilities",
-  "ticker": "ESOCF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "IT0003132476": {
-  "isin": "IT0003132476",
-  "name": "Eni S.p.A.",
-  "country": "Italy",
-  "sector": "Energy",
-  "ticker": "EIPAF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "BE0974293251": {
-  "isin": "BE0974293251",
-  "name": "Anheuser Busch Inbev SA NV",
-  "country": "Belgium",
-  "sector": "Consumer Staples",
-  "ticker": "BUD",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "BE0003565737": {
-  "isin": "BE0003565737",
-  "name": "KBC Group NV",
-  "country": "Belgium",
-  "sector": "Financials",
-  "ticker": "KBCSF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "SE0000108656": {
-  "isin": "SE0000108656",
-  "name": "Telefonaktiebolaget LM Ericsson (publ)",
-  "country": "Sweden",
-  "sector": "Information Technology",
-  "ticker": "ERIXF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "SE0000115446": {
-  "isin": "SE0000115446",
-  "name": "AB Volvo (publ)",
-  "country": "Sweden",
-  "sector": "Industrials",
-  "ticker": "VOLVF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "NO0010096985": {
-  "isin": "NO0010096985",
-  "name": "Equinor ASA",
-  "country": "Norway",
-  "sector": "Energy",
-  "ticker": "EQNR",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "NO0010063308": {
-  "isin": "NO0010063308",
-  "name": "Telenor ASA",
-  "country": "Norway",
-  "sector": "Communication Services",
-  "ticker": "TELNF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "DK0062498333": {
-  "isin": "DK0062498333",
-  "name": "Novo Nordisk A/S",
-  "country": "Denmark",
-  "sector": "Health Care",
-  "ticker": "NONOF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "DK0010244508": {
-  "isin": "DK0010244508",
-  "name": "A.P. Moller - Maersk A/S",
-  "country": "Denmark",
-  "sector": "Industrials",
-  "ticker": "AMKBF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "FI0009000681": {
-  "isin": "FI0009000681",
-  "name": "Nokia Corp.",
-  "country": "Finland",
-  "sector": "Information Technology",
-  "ticker": "NOK",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "FI0009013403": {
-  "isin": "FI0009013403",
-  "name": "KONE Oyj",
-  "country": "Finland",
-  "sector": "Industrials",
-  "ticker": "KNYJF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "AT0000743059": {
-  "isin": "AT0000743059",
-  "name": "OMV Aktiengesellschaft",
-  "country": "Austria",
-  "sector": "Energy",
-  "ticker": "OMVJF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "AT0000652011": {
-  "isin": "AT0000652011",
-  "name": "Erste Group Bank AG",
-  "country": "Austria",
-  "sector": "Financials",
-  "ticker": "EBKOF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "IE00BD1RP616": {
-  "isin": "IE00BD1RP616",
-  "name": "Bank of Ireland Group plc",
-  "country": "Ireland",
-  "sector": "Financials",
-  "ticker": "BKRIF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "PTEDP0AM0009": {
-  "isin": "PTEDP0AM0009",
-  "name": "EDP - Energias de Portugal, S.A.",
-  "country": "Portugal",
-  "sector": "Utilities",
-  "ticker": "ELCPF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "PTGAL0AM0009": {
-  "isin": "PTGAL0AM0009",
-  "name": "Galp Energia, SGPS, S.A.",
-  "country": "Portugal",
-  "sector": "Energy",
-  "ticker": "GLPEF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "PLPKO0000016": {
-  "isin": "PLPKO0000016",
-  "name": "Powszechna Kasa Oszczednosci Bank Polski Spolka Akcyjna",
-  "country": "Poland",
-  "sector": "Financials",
-  "ticker": "PSZKF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "PLKGHM000017": {
-  "isin": "PLKGHM000017",
-  "name": "KGHM Polska Miedz S.A.",
-  "country": "Poland",
-  "sector": "Materials",
-  "ticker": "KGHPF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "GRS260333000": {
-  "isin": "GRS260333000",
-  "name": "Hellenic Telecommunications Organization S.A.",
-  "country": "Greece",
-  "sector": "Communication Services",
-  "ticker": "HLTOF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "HU0000061726": {
-  "isin": "HU0000061726",
-  "name": "OTP Bank Nyrt.",
-  "country": "Hungary",
-  "sector": "Financials",
-  "ticker": "OTPBF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "HU0000123096": {
-  "isin": "HU0000123096",
-  "name": "Richter Gedeon Vegyeszeti Gyar Nyilvanosan Mukodo Rt.",
-  "country": "Hungary",
-  "sector": "Health Care",
-  "ticker": "RGEDF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CZ0005112300": {
-  "isin": "CZ0005112300",
-  "name": "CEZ, a. s.",
-  "country": "Czech Republic",
-  "sector": "Utilities",
-  "ticker": "CZAVF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CZ0008019106": {
-  "isin": "CZ0008019106",
-  "name": "Komercni banka, a.s.",
-  "country": "Czech Republic",
-  "sector": "Financials",
-  "ticker": "KMERF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "TREBIMM00018": {
-  "isin": "TREBIMM00018",
-  "name": "BIM Birlesik Magazalar A.S.",
-  "country": "Turkey",
-  "sector": "Consumer Staples",
-  "ticker": "BMBRF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "TRAASELS91H2": {
-  "isin": "TRAASELS91H2",
-  "name": "Aselsan Elektronik Sanayi ve Ticaret Anonim Sirketi",
-  "country": "Turkey",
-  "sector": "Industrials",
-  "ticker": "ASELS.IS",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "JP3633400001": {
-  "isin": "JP3633400001",
-  "name": "Toyota Motor Corporation",
-  "country": "Japan",
-  "sector": "Consumer Discretionary",
-  "ticker": "TOYOF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "JP3435000009": {
-  "isin": "JP3435000009",
-  "name": "Sony Group Corporation",
-  "country": "Japan",
-  "sector": "Consumer Discretionary",
-  "ticker": "SNEJF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "KR7005930003": {
-  "isin": "KR7005930003",
-  "name": "Samsung Electronics Co., Ltd.",
-  "country": "South Korea",
-  "sector": "Information Technology",
-  "ticker": "SSNLF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "KR7000660001": {
-  "isin": "KR7000660001",
-  "name": "SK hynix Inc.",
-  "country": "South Korea",
-  "sector": "Information Technology",
-  "ticker": "000660.KS",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "TW0002330008": {
-  "isin": "TW0002330008",
-  "name": "Taiwan Semiconductor Manufacturing Company Limited",
-  "country": "Taiwan",
-  "sector": "Information Technology",
-  "ticker": "2330.TW",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "TW0002317005": {
-  "isin": "TW0002317005",
-  "name": "Hon Hai Precision Industry Co., Ltd.",
-  "country": "Taiwan",
-  "sector": "Information Technology",
-  "ticker": "HNHAF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CNE0000018R8": {
-  "isin": "CNE0000018R8",
-  "name": "Kweichow Moutai Co., Ltd.",
-  "country": "China",
-  "sector": "Consumer Staples",
-  "ticker": "600519.SS",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CNE1000003G1": {
-  "isin": "CNE1000003G1",
-  "name": "Industrial and Commercial Bank of China Limited",
-  "country": "China",
-  "sector": "Financials",
-  "ticker": "IDCBF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CNE100003662": {
-  "isin": "CNE100003662",
-  "name": "Contemporary Amperex Technology Co., Limited",
-  "country": "China",
-  "sector": "Industrials",
-  "ticker": "300750.SZ",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "HK0000069689": {
-  "isin": "HK0000069689",
-  "name": "AIA Group Limited",
-  "country": "Hong Kong",
-  "sector": "Financials",
-  "ticker": "AAIGF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "HK0388045442": {
-  "isin": "HK0388045442",
-  "name": "Hong Kong Exchanges and Clearing Limited",
-  "country": "Hong Kong",
-  "sector": "Financials",
-  "ticker": "HKXCF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "INE002A01018": {
-  "isin": "INE002A01018",
-  "name": "Reliance Industries Limited",
-  "country": "India",
-  "sector": "Energy",
-  "ticker": "RELIANCE.BO",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "INE009A01021": {
-  "isin": "INE009A01021",
-  "name": "Infosys Limited",
-  "country": "India",
-  "sector": "Information Technology",
-  "ticker": "INFY.BO",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "SG1L01001701": {
-  "isin": "SG1L01001701",
-  "name": "DBS Group Holdings Ltd",
-  "country": "Singapore",
-  "sector": "Financials",
-  "ticker": "DBSDF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "SG1T75931496": {
-  "isin": "SG1T75931496",
-  "name": "Singapore Telecommunications Limited",
-  "country": "Singapore",
-  "sector": "Communication Services",
-  "ticker": "SNGNF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "AU000000BHP4": {
-  "isin": "AU000000BHP4",
-  "name": "BHP Group",
-  "country": "Australia",
-  "sector": "Materials",
-  "ticker": "BHP",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "AU000000CSL8": {
-  "isin": "AU000000CSL8",
-  "name": "CSL Limited",
-  "country": "Australia",
-  "sector": "Health Care",
-  "ticker": "CMXHF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "NZFAPE0001S2": {
-  "isin": "NZFAPE0001S2",
-  "name": "Fisher & Paykel Healthcare Corp. Ltd.",
-  "country": "New Zealand",
-  "sector": "Health Care",
-  "ticker": "FSPKF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "NZMELE0002S7": {
-  "isin": "NZMELE0002S7",
-  "name": "Meridian Energy Limited",
-  "country": "New Zealand",
-  "sector": "Utilities",
-  "ticker": "MDDNF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "ZAE000015889": {
-  "isin": "ZAE000015889",
-  "name": "Naspers Limited",
-  "country": "South Africa",
-  "sector": "Consumer Discretionary",
-  "ticker": "NPN.JO",
-  "src": {
-   "name": "yfinance",
-   "country": "yfinance",
-   "sector": "yfinance"
-  },
-  "status": "ok"
- },
- "ZAE000042164": {
-  "isin": "ZAE000042164",
-  "name": "MTN Group Limited",
-  "country": "South Africa",
-  "sector": "Communication Services",
-  "ticker": "MTNOF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "BRPETRACNPR6": {
-  "isin": "BRPETRACNPR6",
-  "name": "Petroleo Brasileiro S.A. - Petrobras",
-  "country": "Brazil",
-  "sector": "Energy",
-  "ticker": "PETR4.SA",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "BRVALEACNOR0": {
-  "isin": "BRVALEACNOR0",
-  "name": "Vale S.A.",
-  "country": "Brazil",
-  "sector": "Materials",
-  "ticker": "CVLC.BE",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "MX01WA000038": {
-  "isin": "MX01WA000038",
-  "name": "Wal-Mart de Mexico, S.A.B. de C.V.",
-  "country": "Mexico",
-  "sector": "Consumer Staples",
-  "ticker": "WMMVF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "MX01AM050019": {
-  "isin": "MX01AM050019",
-  "name": "América Móvil, S.A.B. de C.V.",
-  "country": "Mexico",
-  "sector": "Communication Services",
-  "ticker": "AMXOF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "CLP0939W1081": {
-  "isin": "CLP0939W1081",
-  "name": "Banco de Chile",
-  "country": "Chile",
-  "sector": "Financials",
-  "ticker": "CHILE.SN",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "ARP9897X1319": {
-  "isin": "ARP9897X1319",
-  "name": "YPF Sociedad Anónima",
-  "country": "Argentina",
-  "sector": "Energy",
-  "ticker": "YPFD.BA",
-  "src": {
-   "name": "yfinance",
-   "country": "yfinance",
-   "sector": "yfinance"
-  },
-  "status": "ok"
- },
- "COC04PA00016": {
-  "isin": "COC04PA00016",
-  "name": "Ecopetrol S.A.",
-  "country": "Colombia",
-  "sector": "Energy",
-  "ticker": "ECOPETROL.CL",
-  "src": {
-   "name": "yfinance",
-   "country": "yfinance",
-   "sector": "yfinance"
-  },
-  "status": "ok"
- },
- "SA14TG012N13": {
-  "isin": "SA14TG012N13",
-  "name": "Saudi Arabian Oil Company",
-  "country": "Saudi Arabia",
-  "sector": "Energy",
-  "ticker": "2222.SR",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "SA0007879113": {
-  "isin": "SA0007879113",
-  "name": "Al Rajhi Banking and Investment Corporation",
-  "country": "Saudi Arabia",
-  "sector": "Financials",
-  "ticker": "1120.SR",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "AEE000301011": {
-  "isin": "AEE000301011",
-  "name": "Emaar Properties PJSC",
-  "country": "United Arab Emirates",
-  "sector": "Real Estate",
-  "ticker": "EMAAR.AE",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "QA0006929895": {
-  "isin": "QA0006929895",
-  "name": "Qatar National Bank (Q.P.S.C.)",
-  "country": "Qatar",
-  "sector": "Financials",
-  "ticker": "QNBK.QA",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "KW0EQ0100085": {
-  "isin": "KW0EQ0100085",
-  "name": "Kuwait Finance House K.S.C.P.",
-  "country": "Kuwait",
-  "sector": "Financials",
-  "ticker": "KFH.KW",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "EGS60121C018": {
-  "isin": "EGS60121C018",
-  "name": "COMMERCIAL INTERNATIONAL BAN",
-  "country": "Egypt",
-  "sector": "Financials",
-  "ticker": "EGS60121C018.CA",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "PR7331747001": {
-  "isin": "PR7331747001",
-  "name": "Popular, Inc.",
-  "country": "Puerto Rico",
-  "sector": "Financials",
-  "ticker": "BPOP",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "IM00B5VQMV65": {
-  "isin": "IM00B5VQMV65",
-  "name": "Entain Plc",
-  "country": "United Kingdom",
-  "sector": "Materials",
-  "ticker": "GMVHF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "LR0008862868": {
-  "isin": "LR0008862868",
-  "name": "Royal Caribbean Group",
-  "country": "United States",
-  "sector": "Consumer Discretionary",
-  "ticker": "RCL",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "MA0000011488": {
-  "isin": "MA0000011488",
-  "name": "Itissalat Al-Maghrib (IAM) S.A.",
-  "country": "Morocco",
-  "sector": "Communication Services",
-  "ticker": "IAM.PA",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "ID1000109507": {
-  "isin": "ID1000109507",
-  "name": "PT Bank Central Asia Tbk",
-  "country": "Indonesia",
-  "sector": "Financials",
-  "ticker": "PBCRF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "ID1000129000": {
-  "isin": "ID1000129000",
-  "name": "Perusahaan Perseroan (Persero) PT Telekomunikasi Indonesia Tbk",
-  "country": "Indonesia",
-  "sector": "Communication Services",
-  "ticker": "TLKMF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "MYL1155OO000": {
-  "isin": "MYL1155OO000",
-  "name": "Malayan Banking Berhad",
-  "country": "Malaysia",
-  "sector": "Financials",
-  "ticker": "MLYNF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "MYL5347OO009": {
-  "isin": "MYL5347OO009",
-  "name": "Tenaga Nasional Berhad",
-  "country": "Malaysia",
-  "sector": "Utilities",
-  "ticker": "TNABF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "PHY0488F1004": {
-  "isin": "PHY0488F1004",
-  "name": "Ayala Land, Inc.",
-  "country": "Philippines",
-  "sector": "Real Estate",
-  "ticker": "AYAAF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "VN000000VNM8": {
-  "isin": "VN000000VNM8",
-  "name": "Vietnam Dairy Products Joint Stock Company",
-  "country": "Vietnam",
-  "sector": "Consumer Staples",
-  "ticker": "VNM.VN",
-  "src": {
-   "name": "yfinance",
-   "country": "yfinance",
-   "sector": "yfinance"
-  },
-  "status": "ok"
- },
- "LU1598757687": {
-  "isin": "LU1598757687",
-  "name": "ArcelorMittal",
-  "country": "Luxembourg",
-  "sector": "Materials",
-  "ticker": "AMSYF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "JE00B4T3BW64": {
-  "isin": "JE00B4T3BW64",
-  "name": "Glencore plc",
-  "country": "Switzerland",
-  "sector": "Materials",
-  "ticker": "GLCNF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "JE00B8KF9B49": {
-  "isin": "JE00B8KF9B49",
-  "name": "WPP plc",
-  "country": "United Kingdom",
-  "sector": "Communication Services",
-  "ticker": "WPP",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "BMG2519Y1084": {
-  "isin": "BMG2519Y1084",
-  "name": "Credicorp Ltd.",
-  "country": "Peru",
-  "sector": "Financials",
-  "ticker": "BAP",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "KYG875721634": {
-  "isin": "KYG875721634",
-  "name": "Tencent Holdings Limited",
-  "country": "China",
-  "sector": "Communication Services",
-  "ticker": "TCTZF",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "KYG017191142": {
-  "isin": "KYG017191142",
-  "name": "Alibaba Group Holding Limited",
-  "country": "China",
-  "sector": "Consumer Discretionary",
-  "ticker": "BABA",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "PAP310761054": {
-  "isin": "PAP310761054",
-  "name": "Copa Holdings, S.A.",
-  "country": "Panama",
-  "sector": "Industrials",
-  "ticker": "CPA",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "AN8068571086": {
-  "isin": "AN8068571086",
-  "name": "Slb N.V.",
-  "country": "United States",
-  "sector": "Energy",
-  "ticker": "SLB",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "SI0031102120": {
-  "isin": "SI0031102120",
-  "name": "Krka, d. d.",
-  "country": "Slovenia",
-  "sector": "Health Care",
-  "ticker": "KRK.WA",
-  "src": {
-   "name": "FinanceDatabase",
-   "country": "FinanceDatabase",
-   "sector": "FinanceDatabase"
-  },
-  "status": "ok"
- },
- "ROTLVAACNOR1": {
-  "isin": "ROTLVAACNOR1",
-  "name": "Banca Transilvania S.A.",
-  "country": "Romania",
-  "sector": "Financials",
-  "ticker": "TLV.RO",
-  "src": {
-   "name": "yfinance",
-   "country": "yfinance",
-   "sector": "yfinance"
-  },
-  "status": "ok"
- }
+"FR0000121014": {
+"isin": "FR0000121014",
+"name": "LVMH Moët Hennessy - Louis Vuitton, Societe Europeenne",
+"country": "France",
+"sector": "Consumer Discretionary",
+"ticker": "LVMHF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"FR0000120271": {
+"isin": "FR0000120271",
+"name": "TotalEnergies SE",
+"country": "France",
+"sector": "Energy",
+"ticker": "TTE",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"FR0000121972": {
+"isin": "FR0000121972",
+"name": "Schneider Electric S.E.",
+"country": "France",
+"sector": "Industrials",
+"ticker": "SBGSF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"FR0000120073": {
+"isin": "FR0000120073",
+"name": "L'Air Liquide S.A.",
+"country": "France",
+"sector": "Materials",
+"ticker": "AIQUF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"NL0010273215": {
+"isin": "NL0010273215",
+"name": "ASML Holding N.V.",
+"country": "Netherlands",
+"sector": "Information Technology",
+"ticker": "ASML",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"DE0007164600": {
+"isin": "DE0007164600",
+"name": "SAP SE",
+"country": "Germany",
+"sector": "Information Technology",
+"ticker": "SAP",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"DE0007236101": {
+"isin": "DE0007236101",
+"name": "Siemens Aktiengesellschaft",
+"country": "Germany",
+"sector": "Industrials",
+"ticker": "SMAWF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"DK0062498333": {
+"isin": "DK0062498333",
+"name": "Novo Nordisk A/S",
+"country": "Denmark",
+"sector": "Health Care",
+"ticker": "NONOF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"ES0144580Y14": {
+"isin": "ES0144580Y14",
+"name": "Iberdrola, S.A.",
+"country": "Spain",
+"sector": "Utilities",
+"ticker": "IBDSF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"IT0003128367": {
+"isin": "IT0003128367",
+"name": "Enel SpA",
+"country": "Italy",
+"sector": "Utilities",
+"ticker": "ESOCF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"FI0009000681": {
+"isin": "FI0009000681",
+"name": "Nokia Corp.",
+"country": "Finland",
+"sector": "Information Technology",
+"ticker": "NOK",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"BE0974293251": {
+"isin": "BE0974293251",
+"name": "Anheuser Busch Inbev SA NV",
+"country": "Belgium",
+"sector": "Consumer Staples",
+"ticker": "BUD",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"AT0000652011": {
+"isin": "AT0000652011",
+"name": "Erste Group Bank AG",
+"country": "Austria",
+"sector": "Financials",
+"ticker": "EBKOF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"PTEDP0AM0009": {
+"isin": "PTEDP0AM0009",
+"name": "EDP - Energias de Portugal, S.A.",
+"country": "Portugal",
+"sector": "Utilities",
+"ticker": "ELCPF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"US0378331005": {
+"isin": "US0378331005",
+"name": "Apple Inc.",
+"country": "United States",
+"sector": "Information Technology",
+"ticker": "AAPL",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"US67066G1040": {
+"isin": "US67066G1040",
+"name": "NVIDIA Corporation",
+"country": "United States",
+"sector": "Information Technology",
+"ticker": "NVDA",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"US5949181045": {
+"isin": "US5949181045",
+"name": "Microsoft Corporation",
+"country": "United States",
+"sector": "Information Technology",
+"ticker": "MSFT",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"US46625H1005": {
+"isin": "US46625H1005",
+"name": "JPMorgan Chase & Co.",
+"country": "United States",
+"sector": "Financials",
+"ticker": "JPM",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"US4781601046": {
+"isin": "US4781601046",
+"name": "Johnson & Johnson",
+"country": "United States",
+"sector": "Health Care",
+"ticker": "JNJ",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"US0231351067": {
+"isin": "US0231351067",
+"name": "Amazon.com, Inc.",
+"country": "United States",
+"sector": "Consumer Discretionary",
+"ticker": "AMZN",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"JP3633400001": {
+"isin": "JP3633400001",
+"name": "Toyota Motor Corporation",
+"country": "Japan",
+"sector": "Consumer Discretionary",
+"ticker": "TOYOF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"JP3435000009": {
+"isin": "JP3435000009",
+"name": "Sony Group Corporation",
+"country": "Japan",
+"sector": "Consumer Discretionary",
+"ticker": "SNEJF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"CH0038863350": {
+"isin": "CH0038863350",
+"name": "Nestle S.A.",
+"country": "Switzerland",
+"sector": "Consumer Staples",
+"ticker": "NSRGF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"GB0005405286": {
+"isin": "GB0005405286",
+"name": "HSBC Holdings Plc",
+"country": "United Kingdom",
+"sector": "Financials",
+"ticker": "HBCYF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"SE0017486889": {
+"isin": "SE0017486889",
+"name": "Atlas Copco AB",
+"country": "Sweden",
+"sector": "Industrials",
+"ticker": "ATLPF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"NO0010096985": {
+"isin": "NO0010096985",
+"name": "Equinor ASA",
+"country": "Norway",
+"sector": "Energy",
+"ticker": "EQNR",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"IE0001827041": {
+"isin": "IE0001827041",
+"name": "CRH plc",
+"country": "Ireland",
+"sector": "Materials",
+"ticker": "CRH",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"IL0010824113": {
+"isin": "IL0010824113",
+"name": "Check Point Software Technologies Ltd.",
+"country": "Israel",
+"sector": "Information Technology",
+"ticker": "CHKP",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"CA7800871021": {
+"isin": "CA7800871021",
+"name": "Royal Bank of Canada",
+"country": "Canada",
+"sector": "Financials",
+"ticker": "RY",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"AU000000BHP4": {
+"isin": "AU000000BHP4",
+"name": "BHP Group",
+"country": "Australia",
+"sector": "Materials",
+"ticker": "BHP",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"SG1L01001701": {
+"isin": "SG1L01001701",
+"name": "DBS Group Holdings Ltd",
+"country": "Singapore",
+"sector": "Financials",
+"ticker": "DBSDF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"HK0000069689": {
+"isin": "HK0000069689",
+"name": "AIA Group Limited",
+"country": "Hong Kong",
+"sector": "Financials",
+"ticker": "AAIGF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"KR7005930003": {
+"isin": "KR7005930003",
+"name": "Samsung Electronics Co., Ltd.",
+"country": "South Korea",
+"sector": "Information Technology",
+"ticker": "SSNLF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"TW0002330008": {
+"isin": "TW0002330008",
+"name": "Taiwan Semiconductor Manufacturing Company Limited",
+"country": "Taiwan",
+"sector": "Information Technology",
+"ticker": "2330.TW",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"INE002A01018": {
+"isin": "INE002A01018",
+"name": "Reliance Industries Limited",
+"country": "India",
+"sector": "Energy",
+"ticker": "RELIANCE.BO",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"BRPETRACNPR6": {
+"isin": "BRPETRACNPR6",
+"name": "Petroleo Brasileiro S.A. - Petrobras",
+"country": "Brazil",
+"sector": "Energy",
+"ticker": "PETR4.SA",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"MX01WA000038": {
+"isin": "MX01WA000038",
+"name": "Wal-Mart de Mexico, S.A.B. de C.V.",
+"country": "Mexico",
+"sector": "Consumer Staples",
+"ticker": "WMMVF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"SA14TG012N13": {
+"isin": "SA14TG012N13",
+"name": "Saudi Arabian Oil Company",
+"country": "Saudi Arabia",
+"sector": "Energy",
+"ticker": "2222.SR",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"AEE000301011": {
+"isin": "AEE000301011",
+"name": "Emaar Properties PJSC",
+"country": "United Arab Emirates",
+"sector": "Real Estate",
+"ticker": "EMAAR.AE",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"PLPKO0000016": {
+"isin": "PLPKO0000016",
+"name": "Powszechna Kasa Oszczednosci Bank Polski Spolka Akcyjna",
+"country": "Poland",
+"sector": "Financials",
+"ticker": "PSZKF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"HU0000061726": {
+"isin": "HU0000061726",
+"name": "OTP Bank Nyrt.",
+"country": "Hungary",
+"sector": "Financials",
+"ticker": "OTPBF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"CZ0005112300": {
+"isin": "CZ0005112300",
+"name": "CEZ, a. s.",
+"country": "Czech Republic",
+"sector": "Utilities",
+"ticker": "CZAVF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"TREBIMM00018": {
+"isin": "TREBIMM00018",
+"name": "BIM Birlesik Magazalar A.S.",
+"country": "Turkey",
+"sector": "Consumer Staples",
+"ticker": "BMBRF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"QA0006929895": {
+"isin": "QA0006929895",
+"name": "Qatar National Bank (Q.P.S.C.)",
+"country": "Qatar",
+"sector": "Financials",
+"ticker": "QNBK.QA",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"KW0EQ0100085": {
+"isin": "KW0EQ0100085",
+"name": "Kuwait Finance House K.S.C.P.",
+"country": "Kuwait",
+"sector": "Financials",
+"ticker": "KFH.KW",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"EGS60121C018": {
+"isin": "EGS60121C018",
+"name": "COMMERCIAL INTERNATIONAL BAN",
+"country": "Egypt",
+"sector": "Financials",
+"ticker": "EGS60121C018.CA",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"US9842451000": {
+"isin": "US9842451000",
+"name": "YPF Sociedad Anonima",
+"country": "Argentina",
+"sector": "Energy",
+"ticker": "YPF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"PHY806761029": {
+"isin": "PHY806761029",
+"name": "SM Investments Corporation",
+"country": "Philippines",
+"sector": "Consumer Discretionary",
+"ticker": "SVTMF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"MA0000011488": {
+"isin": "MA0000011488",
+"name": "Itissalat Al-Maghrib (IAM) S.A.",
+"country": "Morocco",
+"sector": "Communication Services",
+"ticker": "IAM.PA",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"LU1598757687": {
+"isin": "LU1598757687",
+"name": "ArcelorMittal",
+"country": "Luxembourg",
+"sector": "Materials",
+"ticker": "AMSYF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"MYL1155OO000": {
+"isin": "MYL1155OO000",
+"name": "Malayan Banking Berhad",
+"country": "Malaysia",
+"sector": "Financials",
+"ticker": "MLYNF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"ID1000109507": {
+"isin": "ID1000109507",
+"name": "PT Bank Central Asia Tbk",
+"country": "Indonesia",
+"sector": "Financials",
+"ticker": "PBCRF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"CL0000000035": {
+"isin": "CL0000000035",
+"name": "Aguas Andinas S.A.",
+"country": "Chile",
+"sector": "Utilities",
+"ticker": "AGUAS-A.SN",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+},
+"NZFAPE0001S2": {
+"isin": "NZFAPE0001S2",
+"name": "Fisher & Paykel Healthcare Corp. Ltd.",
+"country": "New Zealand",
+"sector": "Health Care",
+"ticker": "FSPKF",
+"src": {
+"name": "FinanceDatabase",
+"country": "FinanceDatabase",
+"sector": "FinanceDatabase"
+},
+"status": "ok"
+}
 }
