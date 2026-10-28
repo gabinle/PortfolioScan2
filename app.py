@@ -2660,7 +2660,7 @@ def landing():
             '<div class="leyebrow">Portfolio intelligence</div>'
             '<h1 class="lh1">See where your<br><span>money lives.</span></h1>'
             '<p class="lsub">Drop your <b>broker or insurer exports</b> (CSV or Excel, several at once). Stocks, '
-            'ETFs, SCPI and euro funds are mapped by <b>country, sector and asset class</b> on a live 3D globe. [IMPORTANT]:RUN THE APP ON YOUR OWN MACHINE TO GET FULL ETF COMPATIBILITY (limited on the web app due to api restrictions). </p>',
+            'ETFs, SCPI and euro funds are mapped by <b>country, sector and asset class</b> on a live 3D globe. [IMPORTANT]:Run the App on your own machine to get better ETF compatibility! (limited the web due to api restrictions). </p>',
             unsafe_allow_html=True,
         )
         files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt",], accept_multiple_files=True,
