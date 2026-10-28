@@ -7,9 +7,12 @@ ETFs are spread over their countries and sectors from data/etf_*.csv.gz; broker 
 """
 import os
 import base64
+import collections
+import functools
 import html
 import io
 import json
+import math
 import re
 import time
 from datetime import datetime
@@ -165,7 +168,8 @@ FIELDS = ("name", "country", "sector")
 CASH_LABEL = "Euro funds & cash"  # country and sector of positions that have neither
 BOND_SECTOR = "Bonds"              # sector of bond ETFs: GICS sectors describe companies, not bonds
 FUND_CASH = "Cash & Derivatives"   # an ETF's own cash and futures lines
-NEUTRAL = ("Unknown", "Other", CASH_LABEL, BOND_SECTOR, FUND_CASH)
+COMMODITIES = "Commodities"        # asset class, country and sector of physical commodities (gold ETCs…)
+NEUTRAL = ("Unknown", "Other", CASH_LABEL, BOND_SECTOR, FUND_CASH, COMMODITIES)
 NEUTRAL_LABEL = {"Other": "Other (outside top 10)"}
 ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 
@@ -555,10 +559,12 @@ def _demo_fundamentals(stamp) -> dict:  # noqa: ARG001
 
 
 def position_kinds(isins) -> dict:
-    """ISIN -> "stock" | "etf" | "special" (SCPI, euro funds, cash), and whether an ETF is in the snapshot."""
+    """ISIN -> "stock" | "etf" | "special" (SCPI, euro funds, cash, physical commodities)."""
     snap, res, out = load_etf_snapshot(), st.session_state.results, {}
     for i in isins:
-        out[i] = "special" if special_kind(i) else "etf" if i in snap or res.get(i, {}).get("etf") else "stock"
+        r = res.get(i, {})
+        out[i] = ("special" if special_kind(i) or (i not in snap and is_commodity(r.get("name")))
+                  else "etf" if i in snap or r.get("etf") or r.get("status") == "not_stock" else "stock")
     return out
 
 
@@ -584,6 +590,23 @@ def position_fundamentals(items: list[dict]) -> dict:
 def position_name(isin: str) -> str:
     etf = load_etf_snapshot().get(isin)
     return (etf or st.session_state.results.get(isin, {})).get("name") or isin
+
+
+def set_figi_key():
+    """The key typed on the landing page: cleaned of the spaces and quotes a paste can bring, then checked with one
+    OpenFIGI request, so a wrong key shows at once instead of failing silently during the scan."""
+    key = st.session_state.figi_input.strip().strip("\"'").strip()
+    st.session_state.figi_user = key
+    st.session_state.figi_status = None
+    if not key:
+        return
+    try:
+        r = requests.post("https://api.openfigi.com/v3/mapping", json=[{"idType": "ID_ISIN", "idValue": "US0378331005"}],
+                          headers={"Content-Type": "application/json", "X-OPENFIGI-APIKEY": key}, timeout=10)
+        st.session_state.figi_status = ("ok" if r.ok else "rejected" if r.status_code in (401, 403)
+                                        else f"unchecked (OpenFIGI answered {r.status_code})")
+    except requests.RequestException:
+        st.session_state.figi_status = "unchecked (OpenFIGI unreachable)"
 
 
 def server_figi_key() -> str | None:
@@ -620,34 +643,6 @@ YF_FUND_SECTORS = {  # Yahoo fund sector keys -> GICS
     "communication_services": "Communication Services", "financial_services": "Financials",
     "healthcare": "Health Care", "industrials": "Industrials", "energy": "Energy", "utilities": "Utilities",
 }
-SUFFIX_COUNTRY = {  # Yahoo ticker suffix -> country of the listing
-    "T": "Japan", "AX": "Australia", "SI": "Singapore", "HK": "Hong Kong", "L": "United Kingdom", "PA": "France",
-    "DE": "Germany", "F": "Germany", "AS": "Netherlands", "SW": "Switzerland", "MI": "Italy", "MC": "Spain",
-    "ST": "Sweden", "CO": "Denmark", "HE": "Finland", "OL": "Norway", "TO": "Canada", "V": "Canada",
-    "KS": "South Korea", "KQ": "South Korea", "TW": "Taiwan", "TWO": "Taiwan", "SS": "China", "SZ": "China",
-    "NS": "India", "BO": "India", "BR": "Belgium", "LS": "Portugal", "VI": "Austria", "IR": "Ireland",
-    "NZ": "New Zealand", "SA": "Brazil", "MX": "Mexico", "JO": "South Africa", "KL": "Malaysia", "BK": "Thailand",
-    "JK": "Indonesia", "TA": "Israel", "SR": "Saudi Arabia", "IS": "Turkey", "WA": "Poland",
-}
-# A fund named after one country (and no region) holds that country.
-REGION_WORDS = re.compile(r"\b(world|global|europe|european|euro|emu|asia|asian|pacific|emerging|nordic|"
-                          r"international|ex|developed|america|americas|latin|africa|frontier|eafe|acwi|all.country)\b",
-                          re.I)
-COUNTRY_WORDS = [
-    (r"\bjapan(ese)?\b|\btopix\b|\bnikkei\b", "Japan"), (r"\bswitzerland\b|\bswiss\b|\bsmi\b", "Switzerland"),
-    (r"\bgerman[y]?\b|\bdax\b", "Germany"), (r"\bfrance\b|\bfrench\b|\bcac\b", "France"),
-    (r"\bunited kingdom\b|\buk\b|\bftse 100\b|\bftse 250\b", "United Kingdom"),
-    (r"\bunited states\b|\busa\b|\bus\b|\bs&p 500\b|\bnasdaq\b|\brussell\b", "United States"),
-    (r"\bchina\b|\bchinese\b|\bcsi 300\b", "China"), (r"\bindia(n)?\b|\bnifty\b", "India"),
-    (r"\bbrazil\b", "Brazil"), (r"\bcanada\b|\bcanadian\b", "Canada"), (r"\baustralia(n)?\b", "Australia"),
-    (r"\bkorea(n)?\b", "South Korea"), (r"\btaiwan\b", "Taiwan"), (r"\bital(y|ian)\b", "Italy"),
-    (r"\bspain\b|\bspanish\b|\bibex\b", "Spain"), (r"\bnetherlands\b|\bdutch\b|\baex\b", "Netherlands"),
-    (r"\bsweden\b|\bswedish\b", "Sweden"), (r"\bmexico\b", "Mexico"), (r"\bsouth africa\b", "South Africa"),
-    (r"\bsaudi\b", "Saudi Arabia"), (r"\bturkey\b", "Turkey"), (r"\bpoland\b", "Poland"),
-    (r"\bindonesia\b", "Indonesia"), (r"\bhong kong\b", "Hong Kong"), (r"\bsingapore\b", "Singapore"),
-    (r"\bvietnam\b", "Vietnam"), (r"\bbelgium\b", "Belgium"), (r"\baustria\b", "Austria"),
-    (r"\bnorway\b", "Norway"), (r"\bdenmark\b", "Denmark"), (r"\bfinland\b", "Finland"),
-]
 
 
 def load_fd_etf_tickers() -> dict:
@@ -665,18 +660,49 @@ def _fd_etf_tickers(stamp) -> dict:  # noqa: ARG001 — stamp only keys the cach
     return t.sort_values(["isin", "rank"]).groupby("isin")["symbol"].apply(list).to_dict()
 
 
-def country_in_name(name: str) -> str | None:
-    if not name or REGION_WORDS.search(name):
+@st.cache_resource(show_spinner=False)
+def country_names_re():
+    """Every country name pycountry knows (official, common and short), longest first, to spot one in a fund name."""
+    names = {}
+    for c in pycountry.countries:
+        label = getattr(c, "common_name", None) or c.name
+        for n in {c.name, label, getattr(c, "official_name", None)} - {None}:
+            names[n.lower()] = label
+    alternation = "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True))
+    return re.compile(rf"\b({alternation})\b", re.I), names
+
+
+def country_in_name(name: str, holdings: dict) -> str | None:
+    """The one country a fund's name names, kept only when the fund's largest holdings confirm it (most of their
+    weight in that country), so "World ex Japan" is not taken for Japan. `holdings`: country -> weight."""
+    rx, names = country_names_re()
+    found = {names[m.lower()] for m in rx.findall(name or "")}
+    if len(found) != 1:
         return None
-    found = {country for pattern, country in COUNTRY_WORDS if re.search(pattern, name, re.I)}
-    return found.pop() if len(found) == 1 else None
+    country = found.pop()
+    known = {c: v for c, v in holdings.items() if c != "Unknown"}
+    if known and known.get(country, 0) < 0.8 * sum(known.values()):
+        return None
+    return country
 
 
-def yahoo_etf(isin: str, first: str | None, name: str | None, fd_maps, log) -> dict | None:
-    """An ETF missing from our snapshot, estimated from Yahoo: its own sector weights, and countries from its name
-    when it names a single country, else from its top 10 holdings (the rest stays Unknown). None if Yahoo has no
-    fund data on any of the ETF's listings."""
-    candidates = list(dict.fromkeys(x for x in [first] + load_fd_etf_tickers().get(isin, []) if x))[:5]
+def holding_country(symbol: str) -> str | None:
+    """Country of a fund holding FinanceDatabase does not know, as Yahoo Finance gives it (None if it has none)."""
+    try:
+        return clean(yf.Ticker(symbol).info.get("country"))
+    except Exception:  # noqa: BLE001 — no quote for that symbol
+        return None
+
+
+def yahoo_etf(isin: str, first: str | None, name: str | None, fd_maps, log, extra=(),
+              fallback_name: str | None = None) -> dict | None:
+    """An ETF missing from our snapshot, estimated from Yahoo: its own sector weights and asset classes, and the
+    countries of its top 10 holdings (FinanceDatabase, else Yahoo); the rest stays Unknown until etf_for() estimates it.
+    A fund whose name names one country its holdings confirm is that country. None if Yahoo has no fund data."""
+    # Its listings: Yahoo's own, ours, then those found through OpenFIGI (`extra`), so a fund whose usual listings
+    # carry no fund data still gets a chance on another exchange.
+    known = list(dict.fromkeys(x for x in [first] + load_fd_etf_tickers().get(isin, []) if x))[:5]
+    candidates = known + [x for x in dict.fromkeys(extra) if x not in known][:5]
     for sym in candidates:
         try:
             yt = yf.Ticker(sym)
@@ -684,7 +710,7 @@ def yahoo_etf(isin: str, first: str | None, name: str | None, fd_maps, log) -> d
             sw, th, ac = fund.sector_weightings or {}, fund.top_holdings, fund.asset_classes or {}
         except Exception:  # noqa: BLE001 — that listing has no fund data: try the next one
             continue
-        if sw or (th is not None and len(th)):
+        if sw or (th is not None and len(th)) or any(ac.values()):  # a bond fund may only have its asset classes
             break
     else:
         log("yfinance", f"no fund data on {', '.join(candidates) or 'any listing'}", "miss")
@@ -694,24 +720,226 @@ def yahoo_etf(isin: str, first: str | None, name: str | None, fd_maps, log) -> d
             name = yt.info.get("longName") or yt.info.get("shortName")
         except Exception:  # noqa: BLE001
             name = None
-    name = name or isin
+    name = name or fallback_name or isin
     sectors = {YF_FUND_SECTORS.get(k, k): 100 * float(v) for k, v in sw.items() if v and v > 0}
-    country = country_in_name(name)
+    countries, by_symbol = {}, (fd_maps[2] if fd_maps else {})
+    for hsym, row in (th.iterrows() if th is not None else []):
+        c = by_symbol.get(hsym) or holding_country(hsym) or "Unknown"
+        countries[c] = countries.get(c, 0) + 100 * float(row.get("Holding Percent") or 0)
+    countries["Unknown"] = countries.get("Unknown", 0) + max(0.0, 100 - sum(countries.values()))
+    how = f"countries from its top {0 if th is None else len(th)} holdings"
+    country = country_in_name(name, countries)
     if country:
         countries, how = {country: 100.0}, f"countries from its name ({country})"
-    else:
-        countries, by_symbol = {}, (fd_maps[2] if fd_maps else {})
-        for hsym, row in (th.iterrows() if th is not None else []):
-            c = by_symbol.get(hsym) or SUFFIX_COUNTRY.get(hsym.rsplit(".", 1)[1] if "." in hsym else "", None) \
-                or ("United States" if "." not in hsym else "Unknown")
-            countries[c] = countries.get(c, 0) + 100 * float(row.get("Holding Percent") or 0)
-        countries["Unknown"] = countries.get("Unknown", 0) + max(0.0, 100 - sum(countries.values()))
-        how = f"countries from its top {0 if th is None else len(th)} holdings"
     log("yfinance", f"fund data on {sym} → {len(sectors)} sectors · {how}", "ok")
     return {"name": name, "ticker": sym, "issuer": "Yahoo Finance", "basis": f"estimate, {how}",
             "as_of": datetime.now().strftime("%d-%b-%Y"),
             "asset_class": "Bonds" if (ac.get("bondPosition") or 0) > 0.5 else "Equities",
             "country": countries, "sector": sectors}
+
+
+# Funds from issuers outside our snapshot (Vanguard, WisdomTree, L&G…). Yahoo has their sectors (or, for some bond
+# funds, only their asset classes) but no countries. Their countries come from the data alone, best first, with no
+# list of indices, equivalences or translations in the code:
+#   1. a snapshot ETF on the same index: both names give the same index name once the brand and the wrapper are
+#      removed ("Vanguard FTSE All-World UCITS ETF USD Acc" and "iShares FTSE All World UCITS ETF" -> "ftse all world");
+#   2. else the closest snapshot fund: with the fund's sectors, an equity ETF whose index name shares a word with the
+#      fund's, whose countries hold the fund's largest holdings, and whose sector mix is nearest; without sectors, the
+#      fund of the same asset class whose index name is nearest, words weighted by how rare they are;
+#   3. else the countries of its largest holdings, scaled to the whole fund.
+# A snapshot ETF its issuer left partly unclassified has that part filled from its closest sibling the same way.
+WRAPPER_RE = re.compile(r"\b(ucits|etf)\b", re.I)  # where a fund's name stops naming its index
+TWIN_EXTRA_WORD = 10     # sector-distance points a candidate pays per word its index name adds ("value", "factor"…),
+                         # scaled by how rare the word is: a provider ("msci") costs little, "value" a lot
+TWIN_MAX_DISTANCE = 20   # beyond this sector distance (sum of gaps, in points) no fund is close enough
+TWIN_MIN_COVERAGE = 0.8  # share of the fund's known top-holding countries the candidate must also hold
+TWIN_FILL_MIN = 5        # % of a snapshot ETF left Unknown by its issuer before it is filled from its closest sibling
+
+
+def index_key(name: str, issuer: str = "") -> tuple:
+    """The index a fund tracks, as its name spells it: the words between the brand and "UCITS" / "ETF"."""
+    head = WRAPPER_RE.split(str(name or ""), 1)[0]
+    head = head.rsplit(" - ", 1)[-1]  # "Xtrackers (IE) Plc - Xtrackers MSCI World…"
+    words = re.findall(r"[a-z0-9&]+", head.lower())
+    brand = set(words[:1]) | set(re.findall(r"[a-z0-9&]+", issuer.lower()))
+    cut = max([i + 1 for i, w in enumerate(words[:4]) if w in brand] or [0])
+    return tuple(words[cut:])
+
+
+def index_twins() -> dict:
+    """Snapshot funds by index name, with their asset class; the range words ("core", "edge"…), which only ever open
+    an index name and never sit inside one ("core msci europe" is "msci europe"); and each word's weight."""
+    return _index_twins(file_stamp(ETF_FUNDS, ETF_EXPOSURE))
+
+
+@st.cache_resource(show_spinner=False)
+def _index_twins(stamp) -> dict:  # noqa: ARG001 — stamp only keys the cache
+    snap = load_etf_snapshot()
+    keys = {i: index_key(f["name"], f["issuer"]) for i, f in snap.items()}
+    keys = {i: k for i, k in keys.items() if k}
+    first, inside = set(), set()
+    for k in keys.values():
+        first.add(k[0])
+        inside.update(k[1:])
+    by_key = {}
+    for i, k in sorted(keys.items(), key=lambda x: -float(snap[x[0]].get("holdings") or 0)):
+        by_key.setdefault(k, i)
+    # How much each word says about a fund (inverse document frequency, 1 = an average word; unseen = the rarest).
+    seen = collections.Counter(w for k in keys.values() for w in set(k))
+    idf = {w: math.log(len(keys) / c) for w, c in seen.items()}
+    mean = sum(idf.values()) / (len(idf) or 1)
+    return {"keys": keys, "by_key": by_key, "range": first - inside, "asset": {i: snap[i]["asset_class"] for i in keys},
+            "weight": {w: v / mean for w, v in idf.items()}, "unseen": math.log(len(keys)) / mean}
+
+
+def same_index_etf(name: str) -> str | None:
+    """ISIN of a snapshot ETF on the very index this fund's name names, if any."""
+    k, t = index_key(name), index_twins()
+    if len(k) < 2:  # a single word ("Europe") does not name an index
+        return None
+    if k in t["by_key"]:
+        return t["by_key"][k]
+    return next((i for kk, i in t["by_key"].items() if kk[1:] == k and kk[0] in t["range"]), None)
+
+
+def closest_etf(name: str, sectors: dict, countries: dict, exclude: str = "", complete: str = "") -> str | None:
+    """ISIN of the snapshot equity ETF closest to a fund known by its name, sector weights and the countries of its
+    largest holdings, or None when nothing is close enough. `complete`: only candidates that leave less than
+    TWIN_FILL_MIN of that dimension Unknown."""
+    snap, t = load_etf_snapshot(), index_twins()
+    words = set(index_key(name))
+    tot = sum(v for k, v in sectors.items() if k not in NEUTRAL) or 1
+    mine = {k: 100 * v / tot for k, v in sectors.items() if k not in NEUTRAL}
+    known = {c: v for c, v in countries.items() if c not in NEUTRAL}
+    best, best_score = None, None
+    for isin, k in t["keys"].items():
+        if isin == exclude or t["asset"][isin] != "Equities" or not words & set(k):
+            continue
+        f = snap[isin]
+        if complete and f[complete].get("Unknown", 0) >= TWIN_FILL_MIN:
+            continue
+        real = {s: v for s, v in f["sector"].items() if s not in NEUTRAL}
+        rt = sum(real.values()) or 1
+        distance = sum(abs(mine.get(s, 0) - 100 * real.get(s, 0) / rt) for s in set(mine) | set(real))
+        held = sum(min(f["country"].get(c, 0), v) for c, v in known.items()) / (sum(known.values()) or 1)
+        if distance > TWIN_MAX_DISTANCE or (known and held < TWIN_MIN_COVERAGE):
+            continue
+        score = distance + TWIN_EXTRA_WORD * sum(t["weight"][w] for w in set(k) - words)
+        if best_score is None or score < best_score:
+            best, best_score = isin, score
+    return best
+
+
+def nearest_by_name(name: str, asset: str | None = None) -> str | None:
+    """ISIN of the snapshot fund (of that asset class, if given) whose index name is nearest to this fund's, for a fund
+    with no sector data: the words the two names do not share should weigh as little as possible, each word weighted
+    by how rare it is, and the shared words must outweigh the fund's own words the candidate lacks."""
+    t = index_twins()
+    weight = lambda w: t["weight"].get(w, t["unseen"])  # noqa: E731
+    words = set(index_key(name))
+    best, best_gap = None, None
+    for isin, k in t["keys"].items():
+        if asset and t["asset"][isin] != asset:
+            continue
+        theirs = set(k)
+        shared, missing = sum(map(weight, words & theirs)), sum(map(weight, words - theirs))
+        if shared <= missing:
+            continue
+        gap = missing + sum(map(weight, theirs - words))
+        if best_gap is None or gap < best_gap:
+            best, best_gap = isin, gap
+    return best
+
+
+HOW_BORROWED = {"same": "which tracks the same index",
+                "closest": "the closest fund in our data (sector mix and largest holdings)",
+                "name": "the fund in our data whose index name is nearest"}
+
+
+def borrowed(etf: dict, isin: str, how: str, what: str) -> dict:
+    """`etf` with the countries (or the whole breakdown) of the snapshot ETF `isin`."""
+    proxy = load_etf_snapshot()[isin]
+    out = {**etf, "country": proxy["country"], "proxy": proxy["name"],
+           "basis": f"estimate, {what} of {proxy['name']}, {HOW_BORROWED[how]}"}
+    if what != "countries":
+        out.update(sector=proxy["sector"], asset_class=proxy["asset_class"])
+    return out
+
+
+@functools.lru_cache(maxsize=256)
+def _proxy_for(name: str, sectors: tuple, countries: tuple, asset: str, stamp) -> tuple:  # noqa: ARG001
+    twin = same_index_etf(name)
+    if twin:
+        return twin, "same"
+    if sectors:
+        return closest_etf(name, dict(sectors), dict(countries)), "closest"
+    return nearest_by_name(name, asset), "name"
+
+
+@functools.lru_cache(maxsize=512)
+def _filled(isin: str, stamp) -> dict:  # noqa: ARG001 — stamp keys the cache
+    """A snapshot ETF whose issuer left TWIN_FILL_MIN % or more of a dimension Unknown, with that part spread like its
+    closest sibling in the snapshot (an ETF that leaves that dimension complete)."""
+    snap = load_etf_snapshot()
+    f = snap[isin]
+    for dim in ("sector", "country"):
+        unknown = f[dim].get("Unknown", 0)
+        if unknown < TWIN_FILL_MIN or f.get("asset_class") != "Equities":
+            continue
+        sib = closest_etf(f["name"], f["sector"], f["country"], exclude=isin, complete=dim)
+        if not sib:
+            continue
+        real = {k: v for k, v in snap[sib][dim].items() if k not in NEUTRAL}
+        rt = sum(real.values()) or 1
+        spread_ = {k: v for k, v in f[dim].items() if k != "Unknown"}
+        for k, v in real.items():
+            spread_[k] = spread_.get(k, 0) + unknown * v / rt
+        f = {**f, dim: spread_, "filled": f.get("filled", []) + [(dim, unknown, snap[sib]["name"])]}
+    return f
+
+
+def etf_for(isin: str, rec: dict, etfs: dict, name: str = "") -> dict | None:
+    """The fund data used for a position (see the comment above): the snapshot's, its unclassified part filled; else
+    Yahoo's estimate with its countries borrowed or estimated; else, for a fund Yahoo has nothing on, the whole
+    breakdown of the nearest snapshot fund. None for a stock or a fund nobody knows."""
+    stamp = file_stamp(ETF_FUNDS, ETF_EXPOSURE)
+    if isin in etfs:
+        return _filled(isin, stamp)
+    etf = rec.get("etf")
+    if etf:
+        if etf.get("issuer") != "Yahoo Finance" or "from its name" in (etf.get("basis") or ""):
+            return etf
+        proxy, how = _proxy_for(etf["name"], tuple(sorted(etf["sector"].items())),
+                                tuple(sorted(etf["country"].items())), etf["asset_class"], stamp)
+        if proxy:
+            return borrowed(etf, proxy, how, "countries")
+        known = {c: v for c, v in etf["country"].items() if c != "Unknown"}
+        covered = sum(known.values())
+        if known and covered < 99.5:
+            return {**etf, "country": {c: 100 * v / covered for c, v in known.items()},
+                    "basis": f"estimate, countries of its largest holdings ({covered:.0f}% of the fund), "
+                             "scaled to the whole fund"}
+        return etf
+    if rec.get("status") == "not_stock":
+        fund = name or rec.get("name")
+        twin = same_index_etf(fund)
+        proxy, how = (twin, "same") if twin else (nearest_by_name(fund), "name")
+        if proxy:
+            base = {"name": fund, "ticker": rec.get("ticker") or "", "issuer": "Index proxy",
+                    "as_of": load_etf_snapshot()[proxy]["as_of"]}
+            return borrowed(base, proxy, how, "countries and sectors")
+    return None
+
+
+# Physical commodities (gold, silver… ETCs) have no country or sector: they are their own asset class, shown grey.
+COMMODITY_RE = re.compile(r"\b(gold|silver|platinum|palladium|precious metals?|bullion|commodit(?:y|ies))\b", re.I)
+COMMODITY_WRAPPER_RE = re.compile(r"\b(ETC|ETP|ETN|physical|bullion)\b|xetra-gold", re.I)
+NOT_COMMODITY_RE = re.compile(r"\b(miners?|mining|producers?|equit(?:y|ies)|companies|royalt(?:y|ies))\b", re.I)
+
+
+def is_commodity(name: str | None) -> bool:
+    name = name or ""
+    return bool(COMMODITY_RE.search(name) and COMMODITY_WRAPPER_RE.search(name) and not NOT_COMMODITY_RE.search(name))
 
 
 def clean(v):
@@ -721,7 +949,64 @@ def clean(v):
     return None if s.lower() in ("", "nan", "none", "n/a") else s
 
 
-def resolve(isin: str, log, fd_maps, figi_key: str | None) -> dict:
+def figi_batch(isins: list[str], key: str | None, log) -> dict:
+    """ISIN -> OpenFIGI's listings of it (one row per exchange: name, ticker, type), for every ISIN in as few
+    requests as OpenFIGI allows (100 per request with a key, 10 without). Kept for the session."""
+    cache = st.session_state.setdefault("figi", {})
+    todo = [i for i in dict.fromkeys(isins) if i not in cache and not special_kind(i)]
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["X-OPENFIGI-APIKEY"] = key
+    size, k = (100 if key else 10), 0
+    while k < len(todo):
+        chunk = todo[k:k + size]
+        try:
+            r = requests.post("https://api.openfigi.com/v3/mapping", headers=headers, timeout=30,
+                              json=[{"idType": "ID_ISIN", "idValue": i} for i in chunk])
+        except requests.RequestException as e:
+            log("OpenFIGI", f"error: {type(e).__name__} — positions left for the per-position lookups", "err")
+            break
+        if r.status_code == 401 and "X-OPENFIGI-APIKEY" in headers:
+            log("OpenFIGI", "the API key was rejected (401) — continuing without a key", "warn")
+            headers.pop("X-OPENFIGI-APIKEY")
+            size = 10
+            continue
+        if r.status_code == 429:
+            log("OpenFIGI", "rate limited (429) — backing off 7s", "warn")
+            time.sleep(7)
+            continue
+        if not r.ok:
+            log("OpenFIGI", f"error: HTTP {r.status_code} — positions left for the per-position lookups", "err")
+            break
+        for isin, res in zip(chunk, r.json()):
+            cache[isin] = res.get("data") or []
+        k += size
+    found = sum(1 for i in isins if cache.get(i))
+    if todo:
+        log("OpenFIGI", f"{found} of {len(isins)} ISIN(s) identified, in {-(-len(todo) // size)} request(s)",
+            "ok" if found else "miss")
+    return {i: cache[i] for i in isins if i in cache}
+
+
+def figi_is_stock(rows: list[dict]) -> bool:
+    return any(d.get("marketSector") == "Equity" and d.get("securityType") not in OPENFIGI_NON_STOCK
+               and d.get("securityType2") not in OPENFIGI_NON_STOCK for d in rows)
+
+
+def yahoo_listings(rows: list[dict]) -> list[str]:
+    """Yahoo symbols of the listings OpenFIGI knows: each OpenFIGI ticker is searched on Yahoo, and the results whose
+    symbol is that ticker (on any exchange) are kept. No table of exchange codes is needed."""
+    out = []
+    for ticker in list(dict.fromkeys(d.get("ticker") for d in rows if d.get("ticker")))[:4]:
+        try:
+            quotes = yf.Search(ticker, max_results=10).quotes
+        except Exception:  # noqa: BLE001 — Yahoo search unavailable: no extra listing
+            continue
+        out += [q["symbol"] for q in quotes if q.get("symbol", "").split(".")[0].upper() == ticker.upper()]
+    return list(dict.fromkeys(out))
+
+
+def resolve(isin: str, log, fd_maps, figi_key: str | None, figi_rows: list[dict] | None = None) -> dict:
     rec = {"isin": isin, "name": None, "country": None, "sector": None,
            "ticker": None, "src": {}, "status": "not_found"}
 
@@ -748,17 +1033,46 @@ def resolve(isin: str, log, fd_maps, figi_key: str | None) -> dict:
         else:
             log("FinanceDatabase", "no match in equity universe", "miss")
 
+    # OpenFIGI (asked for every position at the start of the scan) says it is a fund, not a stock: straight to its
+    # fund data, trying the Yahoo listings of every exchange OpenFIGI lists.
+    if missing() and figi_rows and not figi_is_stock(figi_rows):
+        kind = figi_rows[0].get("securityType") or figi_rows[0].get("marketSector")
+        figi_name = clean(figi_rows[0].get("name"))
+        log("OpenFIGI", f"{figi_name} · {kind} on {len(figi_rows)} listing(s): a fund — looking for its fund data", "ok")
+        try:
+            first = yf.Ticker(isin).ticker
+        except Exception:  # noqa: BLE001 — Yahoo's ISIN search failed: the OpenFIGI listings remain
+            first = None
+        etf = yahoo_etf(isin, first if first != isin else None, None, fd_maps, log,
+                        extra=yahoo_listings(figi_rows), fallback_name=figi_name)
+        if etf:
+            rec.update(name=etf["name"], ticker=etf["ticker"], etf=etf, status="ok", src={"etf": "yfinance"})
+            log("SYS", f"{isin} resolved as an ETF (Yahoo estimate)", "ok")
+            return rec
+        rec.update(name=figi_name, status="not_stock", note=f"OpenFIGI: securityType {kind}")
+        if figi_name:
+            rec["src"]["name"] = "OpenFIGI"
+        log("SYS", f"{isin}: a fund with no fund data on any listing — excluded", "warn")
+        return rec
+
     # 2 ─ yfinance
     if missing():
         log("yfinance", f"query isin={isin} · need {', '.join(missing())}", "info")
         try:
             t = yf.Ticker(isin)
             info = t.info or {}
+            if not (info.get("longName") or info.get("shortName")) and figi_rows:
+                for sym in yahoo_listings(figi_rows)[:3]:  # Yahoo does not know the ISIN: try OpenFIGI's tickers
+                    t, info = yf.Ticker(sym), yf.Ticker(sym).info or {}
+                    if info.get("longName") or info.get("shortName"):
+                        log("yfinance", f"quote found through OpenFIGI's listing {sym}", "ok")
+                        break
             qt = info.get("quoteType")
             if not (info.get("longName") or info.get("shortName")):
                 log("yfinance", "no quote found", "miss")
             elif qt and qt != "EQUITY":
-                etf = yahoo_etf(isin, t.ticker, info.get("longName") or info.get("shortName"), fd_maps, log)
+                etf = yahoo_etf(isin, t.ticker, info.get("longName") or info.get("shortName"), fd_maps, log,
+                                extra=yahoo_listings(figi_rows or []))
                 if etf:
                     rec.update(name=etf["name"], ticker=etf["ticker"], etf=etf, status="ok", src={"etf": "yfinance"})
                     log("SYS", f"{isin} resolved as an ETF (Yahoo estimate)", "ok")
@@ -780,24 +1094,32 @@ def resolve(isin: str, log, fd_maps, figi_key: str | None) -> dict:
         except Exception as e:  # noqa: BLE001 — any network/parse failure just falls through
             log("yfinance", f"error: {type(e).__name__}: {str(e)[:80]}", "err")
 
-    # 3 ─ OpenFIGI
+    # 3 ─ OpenFIGI (its answer from the start of the scan when there is one, else asked now)
     if missing():
-        log("OpenFIGI", f"POST /v3/mapping ID_ISIN={isin} · need {', '.join(missing())}", "info")
+        log("OpenFIGI", f"{'batch answer' if figi_rows is not None else 'POST /v3/mapping'} ID_ISIN={isin} · "
+            f"need {', '.join(missing())}", "info")
         headers = {"Content-Type": "application/json"}
         if figi_key:
             headers["X-OPENFIGI-APIKEY"] = figi_key
         try:
-            for attempt in range(2):
-                r = requests.post("https://api.openfigi.com/v3/mapping",
-                                  json=[{"idType": "ID_ISIN", "idValue": isin}],
-                                  headers=headers, timeout=15)
-                if r.status_code == 429 and attempt == 0:
-                    log("OpenFIGI", "rate limited (429) — backing off 7s", "warn")
-                    time.sleep(7)
-                    continue
-                break
-            r.raise_for_status()
-            data = r.json()[0].get("data") or []
+            if figi_rows is not None:
+                data = figi_rows
+            else:
+                for attempt in range(3):
+                    r = requests.post("https://api.openfigi.com/v3/mapping",
+                                      json=[{"idType": "ID_ISIN", "idValue": isin}],
+                                      headers=headers, timeout=15)
+                    if r.status_code == 401 and "X-OPENFIGI-APIKEY" in headers:  # a wrong key: carry on without one
+                        log("OpenFIGI", "the API key was rejected (401) — retrying without a key", "warn")
+                        headers.pop("X-OPENFIGI-APIKEY")
+                        continue
+                    if r.status_code == 429 and attempt < 2:
+                        log("OpenFIGI", "rate limited (429) — backing off 7s", "warn")
+                        time.sleep(7)
+                        continue
+                    break
+                r.raise_for_status()
+                data = r.json()[0].get("data") or []
             stocks = [d for d in data if d.get("marketSector") == "Equity"
                       and d.get("securityType") not in OPENFIGI_NON_STOCK
                       and d.get("securityType2") not in OPENFIGI_NON_STOCK]
@@ -1034,6 +1356,11 @@ def run_scan(isins: list[str], figi_key: str | None, file_name: str = ""):
     loader.markdown(render_loader(isins, 0, "initialising sources…", started), unsafe_allow_html=True)
     pipe.markdown(render_pipeline(None, hits), unsafe_allow_html=True)
     log("SYS", f"scan started · {len(isins)} asset(s) · cascade FD → YF → FIGI", "head")
+    if figi_key:
+        whose = "yours" if figi_key == st.session_state.get("figi_user") else "the server's"
+        log("OpenFIGI", f"API key ····{figi_key[-4:]} ({whose})", "info")
+    else:
+        log("OpenFIGI", "no API key: shared rate limit", "info")
     etfs = load_etf_snapshot()
     log("SYS", f"ETF data: {len(etfs):,} ETFs loaded" if etfs else
         "ETF data files missing (data/etf_*.csv.gz): ETFs will be estimated from Yahoo", "ok" if etfs else "err")
@@ -1049,12 +1376,16 @@ def run_scan(isins: list[str], figi_key: str | None, file_name: str = ""):
     except Exception as e:  # noqa: BLE001
         log("SYS", f"FinanceDatabase failed to load ({type(e).__name__}) — continuing without it", "err")
 
+    loader.markdown(render_loader(isins, 0, "identifying every position with OpenFIGI…", started),
+                    unsafe_allow_html=True)
+    figi = figi_batch(isins, figi_key, log)
+
     for n, isin in enumerate(isins):
         loader.markdown(render_loader(isins, n, isin, started), unsafe_allow_html=True)
         log("SYS", f"[{n + 1}/{len(isins)}] {isin}", "head")
         if not isin_checksum_ok(isin):
             log("SYS", "ISIN checksum invalid — attempting lookup anyway", "warn")
-        rec = resolve(isin, log, fd_maps, figi_key)
+        rec = resolve(isin, log, fd_maps, figi_key, figi.get(isin))
         for src in rec["src"].values():
             key = "FinanceDatabase" if src.startswith("FinanceDatabase") else src
             if key in hits:
@@ -1089,17 +1420,23 @@ def spread(countries: dict, sectors: dict, value: float) -> list[tuple[str, str,
 def position_spec(isin: str, given: str, res: dict, etfs: dict) -> dict:
     """What we know about one position: name, ticker, asset class, country and sector weights, status."""
     kind = special_kind(isin)
-    etf = etfs.get(isin) or res.get(isin, {}).get("etf")
+    r = res.get(isin, {})
+    etf = etf_for(isin, r, etfs, given)
     if kind:
         label, asset, country, sector = SPECIAL_ROWS[kind]
         return {"name": given or f"{label} · {isin}", "ticker": "", "asset": asset, "country": {country: 1.0},
                 "sector": {sector: 1.0}, "status": "ok", "sources": "classified from its code"}
+    # OpenFIGI's names are abbreviated capitals ("CARMIGNAC PATRIMOINE-A EUR A"): the file's own name reads better.
+    name = (given if r.get("src", {}).get("name") == "OpenFIGI" and given else None) or r.get("name") or given or isin
+    if isin not in etfs and is_commodity(r.get("name") or given):
+        return {"name": name, "ticker": r.get("ticker") or "", "asset": COMMODITIES,
+                "country": {COMMODITIES: 1.0}, "sector": {COMMODITIES: 1.0}, "status": "ok",
+                "sources": "classified from its name: a physical commodity"}
     if etf:
         return {"name": etf["name"], "ticker": etf["ticker"], "asset": etf["asset_class"], "country": etf["country"],
                 "sector": {BOND_SECTOR: 1.0} if etf["asset_class"] == "Bonds" else etf["sector"], "status": "ok",
                 "sources": f"ETF data: {etf['issuer']} · {etf['basis'] or 'holdings'} · {etf['as_of']}"}
-    r = res.get(isin, {})
-    return {"name": r.get("name") or given or isin, "ticker": r.get("ticker") or "", "asset": "Equities",
+    return {"name": name, "ticker": r.get("ticker") or "", "asset": "Equities",
             "country": {r.get("country") or "Unknown": 1.0}, "sector": {r.get("sector") or "Unknown": 1.0},
             "status": r.get("status", "not_found"),
             "sources": " · ".join(f"{k}: {v}" for k, v in r.get("src", {}).items())}
@@ -1224,10 +1561,11 @@ def data_issues(df: pd.DataFrame, excluded: pd.DataFrame, off_map: list[str]) ->
     once = excluded.groupby("isin", as_index=False, sort=False).agg(name=("name", "first"), value=("value", "sum"))
     for x in once.itertuples():
         note = res.get(x.isin, {}).get("note") or "classed as an ETF or fund"
-        add(x.name, x.isin, "ETF / fund without data: excluded", x.value, f"{ETF_SOURCES}: not found · {note}")
+        add(x.name, x.isin, "Fund with no public country or sector data: excluded. Enter its breakdown with "
+            "Fix to include it", x.value, f"{ETF_SOURCES}: not found · {note}")
     for isin, rows in df.groupby("isin", sort=False):
         r0, value = rows.iloc[0], rows["value"].sum()
-        if isin in corrected:
+        if isin in corrected or r0["asset"] == COMMODITIES:  # a commodity has no country or sector by nature
             continue
         if r0["sources"].startswith("ETF data"):  # holdings the issuer's file and FinanceDatabase could not place
             issuer = r0["sources"].split("·")[0].replace("ETF data:", "").strip()
@@ -1279,7 +1617,7 @@ def data_lineage(df: pd.DataFrame, excluded: pd.DataFrame) -> list[dict]:
     frames += [(x.isin, pd.Series(x._asdict()), None) for x in excluded.drop_duplicates("isin").itertuples()]
     for isin, r0, rows in frames:
         rec, kind = res.get(isin, {}), special_kind(isin)
-        etf = etfs.get(isin) or rec.get("etf")
+        etf = etf_for(isin, rec, etfs, str(r0["name"]))
         manual = overrides.get(isin, {})
         if rows is None:  # excluded
             line = {"name": ("none", "only the name in your file"),
@@ -1293,15 +1631,30 @@ def data_lineage(df: pd.DataFrame, excluded: pd.DataFrame) -> list[dict]:
                     "sector": ("estimate", "Real Estate: a SCPI holds property") if kind == "scpi"
                     else ("file", "none by nature: euro fund / cash"),
                     "asset": ("file", f"recognised from its code or name ({isin})")}
+        elif isin not in etfs and rows is not None and r0["asset"] == COMMODITIES:
+            line = {"name": SRC_LABEL.get(rec.get("src", {}).get("name"), ("file", "the name in your file")),
+                    "country": ("estimate", "none by nature: a physical commodity (recognised from its name)"),
+                    "sector": ("estimate", "none by nature: a physical commodity (recognised from its name)"),
+                    "asset": ("estimate", "Commodities: an ETC / ETP holding gold, silver or another commodity")}
+        elif etf and etf["issuer"] == "Index proxy":
+            line = {"name": ("file", "the name in your file"),
+                    "country": ("estimate", etf["basis"].replace("estimate, ", "estimated: ")
+                                + " (no data on this fund itself)"),
+                    "sector": ("estimate", etf["basis"].replace("estimate, ", "estimated: ")),
+                    "asset": ("estimate", f"the asset class of {etf['proxy']}")}
         elif etf and etf["issuer"] == "Yahoo Finance":
             how = etf["basis"].replace("estimate, ", "")
             named = "from its name" in how
             line = {"name": ("yahoo", f"Yahoo Finance ({etf['ticker']})"),
-                    "country": ("estimate", f"estimated: the fund is named after {next(iter(etf['country']))} "
-                                "(Yahoo has no country data)") if named else
-                    ("estimate", "estimated from its top 10 holdings (country of each from FinanceDatabase or its "
-                     "stock exchange); the rest of the fund is Unknown"),
-                    "sector": ("yahoo", f"Yahoo Finance sector weights of the fund ({etf['ticker']}), complete"),
+                    "country": ("estimate", f"estimated: the fund is named after {next(iter(etf['country']))}, "
+                                "which its largest holdings confirm (Yahoo has no country data)") if named else
+                    ("estimate", f"estimated: {how} (Yahoo has no country data)")
+                    if etf.get("proxy") or "scaled" in how else
+                    ("estimate", "estimated from its top 10 holdings (country of each from FinanceDatabase, else "
+                     "Yahoo Finance); the rest of the fund is Unknown"),
+                    "sector": ("yahoo", "Bonds: Yahoo Finance's asset classes show a bond fund")
+                    if etf["asset_class"] == "Bonds" else
+                    ("yahoo", f"Yahoo Finance sector weights of the fund ({etf['ticker']}), complete"),
                     "asset": ("yahoo", "Yahoo Finance asset classes (bonds if over 50%)")}
         elif etf:
             issuer, basis, asof = etf["issuer"], etf["basis"] or "holdings", etf["as_of"]
@@ -1315,6 +1668,9 @@ def data_lineage(df: pd.DataFrame, excluded: pd.DataFrame) -> list[dict]:
                     "country": ("issuer", what.format("country") + f" · as of {asof} · top 10 kept"),
                     "sector": ("issuer", what.format("sector") + f" · as of {asof} · top 10 kept"),
                     "asset": ("estimate", "from the fund's name, then FinanceDatabase's category")}
+            for dim, unknown, sibling in etf.get("filled", []):  # the issuer's unclassified part, estimated
+                line[dim] = ("estimate", line[dim][1] + f" · the {unknown:.1f}% {issuer} left unclassified is spread "
+                             f"like {sibling}, the closest ETF in our data")
         else:
             src = rec.get("src", {})
 
@@ -1895,6 +2251,10 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   @keyframes slidein-r {{ from {{ opacity:0; transform:translateX(24px); }} to {{ opacity:1; transform:none; }} }}
   @keyframes slidein-l {{ from {{ opacity:0; transform:translateX(-24px); }} to {{ opacity:1; transform:none; }} }}
   body.tabbed .col, body.tabbed #legend {{ display:none; }}
+  /* Behind the other tabs, the (paused) globe stays as a soft blurred backdrop, never sharp around the view. */
+  #globe, #glow {{ transition:filter .45s ease, opacity .45s ease; }}
+  body.tabbed #globe {{ filter:blur(18px) brightness(.55) saturate(.8); opacity:.7; }}
+  body.tabbed #glow {{ opacity:.5; }}
   body.back .col, body.back #legend {{ animation:fadein .35s ease-out; }}
   @keyframes fadein {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
   @media (prefers-reduced-motion: reduce) {{
@@ -3306,6 +3666,22 @@ def landing():
         if DEMO_FILE.exists() and st.button("▶ Explore a demo portfolio", type="tertiary", key="demo"):
             load_demo()
             st.rerun()
+        status = st.session_state.get("figi_status") if st.session_state.get("figi_user") else None
+        figi_label = ("OpenFIGI API key (optional)" if not st.session_state.get("figi_user")
+                      else "OpenFIGI API key · rejected" if status == "rejected" else "OpenFIGI API key · set")
+        with st.popover(figi_label, icon=":material/key:"):  # floats over the page: the layout does not move
+            # Copied out of the widget: Streamlit drops a widget's value once the landing page is gone.
+            st.text_input("OpenFIGI API key", type="password", key="figi_input", label_visibility="collapsed",
+                          value=st.session_state.get("figi_user", ""), placeholder="Paste your key, then press Enter",
+                          on_change=set_figi_key)
+            note = {"ok": "  \n✓ Key accepted by OpenFIGI, used for this session.",
+                    "rejected": "  \n✗ OpenFIGI rejected this key (401). Check it, or clear the field: the scan then "
+                                "runs without a key."}.get(status, f"  \n· Key set, {status}." if status else
+                                                           "  \n· Key set for this session." if
+                                                           st.session_state.get("figi_user") else "")
+            st.caption("Lifts OpenFIGI's rate limit, for files with many stocks it does not know yet. Free at "
+                       "[openfigi.com](https://www.openfigi.com/api). Kept for this session only, never stored."
+                       + note)
         st.markdown(
             '<div class="lrow">'
             '<div class="lbox"><div class="lk">File format</div><table>'
@@ -3470,7 +3846,7 @@ def on_bridge():
             sims[i] = {**sims[i], "value": value}
 
 
-figi_key = server_figi_key()  # server-side only (env var or Streamlit secret)
+figi_key = st.session_state.get("figi_user") or server_figi_key()  # the key entered on the landing page, else the server's
 
 # ── Landing: ask for the file ────────────────────────────────────────────────
 ss = st.session_state
