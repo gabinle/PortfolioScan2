@@ -1,10 +1,45 @@
-# PortfolioScan - BETA VERSION
+<div align="center">
 
-See where your money lives. Upload the exports of your brokers and insurers (CSV or Excel, several at once):
-every stock, ETF, bond fund, SCPI, euro fund and cash line is mapped by **country, sector, asset class and account**
-on an interactive 3D globe, with a clear record of where each piece of data comes from.
+<img src="assets/logo.svg" alt="PortfolioScan logo" width="96">
 
-Made by [Gabin Lê](https://www.linkedin.com/in/gabin-le/) · 2026
+# PortfolioScan
+
+**See where your money really lives.**
+
+Upload the exports of your brokers and insurers. Every stock, ETF, bond fund, SCPI, euro fund and cash line is
+mapped by **country, sector, asset class and account** on an interactive 3D globe, with a clear record of where each
+piece of data comes from.
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.59-FF4B4B?logo=streamlit&logoColor=white)
+![Runs in the browser](https://img.shields.io/badge/analysis-in%20your%20session-3987e5)
+
+[Quick start](#quick-start) · [Features](#features) · [How it works](#how-each-position-is-analysed) ·
+[Run locally](#run-locally) · [Privacy](#privacy)
+
+<br>
+
+<img src="assets/screenshot.png" alt="PortfolioScan overview: a 3D globe coloured by country weight, with portfolio, account, country and sector cards" width="900">
+
+</div>
+
+---
+
+## Features
+
+- **Any broker, several files at once.** CSV or Excel exports are read as they are: separator, sheet, header row and
+  columns are detected for you, then confirmed in a review window.
+- **Look-through analysis.** ETFs are broken down into the countries and sectors they actually hold, from the
+  issuers' published data for 2,600+ funds.
+- **A 3D globe** coloured by your exposure, with live inspectors: hover a country, sector or region to see which
+  positions put you there.
+- **Six focused tabs**: Overview, Geography, Sectors, Holdings, Accounts and Metrics.
+- **Search everything** from one box: positions, countries, sectors, accounts, metrics and actions.
+- **Rebalance Assistant**: what to buy with your next contribution, line by line, to reach a target allocation.
+- **Portfolio metrics**: diversification, concentration, home bias, currency exposure, tilt against the world index,
+  fund fees, P/E, dividend income.
+- **Full transparency**: every value is tagged with its source, every gap is listed, and any position can be corrected
+  by hand.
 
 ---
 
@@ -13,17 +48,16 @@ Made by [Gabin Lê](https://www.linkedin.com/in/gabin-le/) · 2026
 1. [Quick start](#quick-start)
 2. [Importing your files](#importing-your-files)
 3. [How each position is analysed](#how-each-position-is-analysed)
-4. [The cockpit](#the-cockpit)
-5. [Detail windows](#detail-windows)
-6. [Data issues and manual corrections](#data-issues-and-manual-corrections)
-7. [Testing a position](#testing-a-position)
-8. [Rebalance Assistant](#rebalance-assistant)
-9. [Metrics](#metrics)
-10. [Demo portfolio](#demo-portfolio)
-11. [Privacy](#privacy)
-12. [Limitations](#limitations)
-13. [Run locally](#run-locally) · [Deploy](#deploy-on-streamlit-community-cloud) ·
-    [Project layout](#project-layout) · [Refreshing the data](#refreshing-the-data)
+4. [Using the app](#using-the-app)
+5. [Rebalance Assistant](#rebalance-assistant)
+6. [Metrics](#metrics)
+7. [Data issues and manual corrections](#data-issues-and-manual-corrections)
+8. [Testing a position](#testing-a-position)
+9. [Demo portfolio](#demo-portfolio)
+10. [Privacy](#privacy)
+11. [Limitations](#limitations)
+12. [Run locally](#run-locally) · [Deploy](#deploy-on-streamlit-community-cloud) ·
+    [Project layout](#project-layout) · [Refreshing the data](#refreshing-the-data) · [Credits](#credits)
 
 ---
 
@@ -31,9 +65,10 @@ Made by [Gabin Lê](https://www.linkedin.com/in/gabin-le/) · 2026
 
 1. Drop one or more exports on the landing page and click **▶ Analyse N files**.
 2. For each file, check the columns the app detected, correct them if needed, and click **✓ Confirm this file**.
-3. The scan runs (only for the stocks it does not already know), then the cockpit opens.
+3. The scan runs, only for the stocks the embedded data does not already cover. The loading screen then shows three
+   key figures (total value, number of positions and analysis precision) before opening the dashboard.
 
-Or click **▶ Explore a demo portfolio** to see everything without a file.
+No file at hand? Click **▶ Explore a demo portfolio**.
 
 ---
 
@@ -48,27 +83,26 @@ then all of them are merged into one portfolio: the same ISIN held in several fi
 
 | What | How |
 |------|-----|
-| Separator (CSV) | comma, semicolon, tab or pipe, guessed from the first lines |
-| Sheet (Excel) | the sheet with the most positions |
-| Header row | the nearest all-text row above the first ISIN, so title lines on top are skipped |
-| ISIN / code column | the column with the most ISINs or recognised codes |
-| Value column | by header ("Montant en EUR", "Somme en compte", "Valorisation", "Market value", "Value"…), never a price, quantity, cost, gain or performance column; otherwise the numeric column with the largest total |
-| Name column | a name-like header ("Produit", "Nom", "Libellé", "Name"…), then the most varied text column |
-| Account column | a header such as "N° Contrat", "Compte", "Account", "Portfolio", with few distinct values |
-| Account label | a column constant within each account (e.g. the product name), put in front of the account number |
+| Separator (CSV) | Comma, semicolon, tab or pipe, guessed from the first lines |
+| Sheet (Excel) | The sheet with the most positions |
+| Header row | The nearest all-text row above the first ISIN, so title lines on top are skipped |
+| ISIN / code column | The column with the most ISINs or recognised codes |
+| Value column | By header ("Montant en EUR", "Valorisation", "Market value", "Value"…), never a price, quantity, cost, gain or performance column; otherwise the numeric column with the largest total |
+| Name column | A name-like header ("Produit", "Nom", "Libellé", "Name"…), then the most varied text column |
+| Account column | A header such as "N° Contrat", "Compte", "Account", "Portfolio", with few distinct values |
+| Account label | A column constant within each account (e.g. the product name), put in front of the account number |
 
 Numbers are read in any common format: `3 561,18 €`, `1,234.56`, `1.234,56`, `- 111,61`. Lines that Degiro wraps
 entirely in quotes are unwrapped.
 
 ### The review window
 
-For every file, a **Check the import** window shows:
+For every file, **Check the import** shows:
 
 - the separator or sheet, the header row and the ISIN, value, name and account columns, each in a menu you can change;
-- an **Account name**, used for every line when the file has no account column (the file name by default);
+- an **account name**, used for every line when the file has no account column (the file name by default);
 - a preview of the file with the chosen columns highlighted;
-- the positions recognised (code, name, value, type, account), the accounts found with their totals, and the
-  ignored rows with the reason (no ISIN, no value, value 0).
+- the positions recognised, the accounts found with their totals, and the ignored rows with the reason.
 
 Buttons: **Confirm this file**, **Skip file**, **Cancel**.
 
@@ -76,9 +110,9 @@ Buttons: **Confirm this file**, **Skip file**, **Cancel**.
 
 | Line | Recognised from |
 |------|-----------------|
-| Cash | code `CASH…` / `LIQUIDIT…` / `ESPECES…`, or a name containing "cash", "liquidités", "espèces" |
-| Euro fund | codes such as `SUR000001730`, `FONDSEURNG`, `NETIS075`, or a name like "Fonds en euros…" |
-| SCPI | code `SCPI…`, or a name starting with "SCPI" |
+| Cash | Code `CASH…` / `LIQUIDIT…` / `ESPECES…`, or a name containing "cash", "liquidités", "espèces" |
+| Euro fund | Codes such as `SUR000001730`, `FONDSEURNG`, `NETIS075`, or a name like "Fonds en euros…" |
+| SCPI | Code `SCPI…`, or a name starting with "SCPI" |
 
 A line with a real ISIN is never reclassified from its name (a money-market ETF called "… Cash" stays an ETF).
 
@@ -100,7 +134,7 @@ Name, country and sector are looked up in a cascade, each source filling only wh
 1. **FinanceDatabase**, embedded as a snapshot (45,000+ ISINs), so most stocks resolve instantly and offline;
 2. **Yahoo Finance** (yfinance), by ISIN;
 3. **OpenFIGI**, by ISIN, with the sector matched back by company name in FinanceDatabase;
-4. last resort for the country: the ISIN's country prefix (shown as an estimate).
+4. as a last resort for the country, the ISIN's country prefix (shown as an estimate).
 
 ADRs (e.g. ARM, Infosys) get the company's country, not the United States.
 
@@ -123,159 +157,171 @@ An ETF missing from the snapshot is looked up on Yahoo Finance, trying each of i
 
 - **Sectors**: the fund's own sector weights, complete.
 - **Countries**: Yahoo has no country breakdown. A fund named after a single country ("MSCI Japan", "Switzerland")
-  is that country at 100%. Otherwise the countries of its top 10 holdings are used (from FinanceDatabase or their
-  stock exchange) and the rest of the fund is Unknown.
+  is that country at 100%. Otherwise the countries of its top 10 holdings are used and the rest of the fund is
+  Unknown.
 
-An ETF with no fund data anywhere is excluded and listed in the Issues window.
+An ETF with no fund data anywhere is excluded and listed under **Data issues**.
 
 ### Bonds, SCPI, euro funds and cash
 
 | Type | Country | Sector | Asset class |
 |------|---------|--------|-------------|
-| Bond ETF | the issuers' countries | "Bonds" (GICS sectors describe companies) | Bonds |
+| Bond ETF | The issuers' countries | "Bonds" (GICS sectors describe companies) | Bonds |
 | SCPI | France (a SCPI is a French vehicle) | Real Estate | Real estate (SCPI) |
-| Euro fund, cash | none by nature | none by nature | Euro funds & cash |
+| Euro fund, cash | None by nature | None by nature | Euro funds & cash |
 
 ### Grey lines
 
 **Unknown**, **Other (outside top 10)**, **Bonds**, **Euro funds & cash** and an ETF's own **Cash & Derivatives**
-are not real countries or sectors: they are shown in grey at the bottom of every list, never on the globe, and not
+are not real countries or sectors. They are shown in grey at the bottom of every list, never on the globe, and are not
 counted in the number of countries and sectors.
 
----
+### Analysis precision
 
-## The cockpit
-
-A full-screen spinning globe, coloured by the weight of each country, with cards on both sides.
-
-**Left column**
-
-- **Portfolio**: total value, number of positions, countries, sectors, share resolved, and notes (ETFs excluded with
-  their share of the total value, value with no mappable country). Button **＋ Test a position**.
-- **Asset classes**: equities, bonds, real estate (SCPI), euro funds & cash.
-- **Accounts**: value, share and number of positions of each account. Click one to open it in the Accounts window.
-- **Top holdings**: the six largest positions (an ETF appears once, as "ETF · equities").
-
-**Right column**
-
-- **Top countries** (7): hover a row for the positions in that country, click it to fly the globe there, click the
-  title to open the Countries window.
-- **Top sectors** (7): hover a row for its positions, click the title to open the Sectors window.
-- **Simulation** (only with test positions): edit or remove each one, and see the largest sector and country shifts.
-- **Details**: buttons for the detail windows, **⟲ Restart** (back to the upload page) and a link to GitHub.
-
-**On the globe**: drag to spin, scroll to zoom, hover a country to list its positions, click to fly to it.
+The precision shown after the scan is the share of the portfolio's total value (excluded funds included) whose
+country **and** sector are both known.
 
 ---
 
-## Detail windows
+## Using the app
 
-| Window | What it shows |
-|--------|---------------|
-| **▦ Sectors** | Treemap of sectors and the positions inside each; click a sector to zoom in |
-| **◉ Countries** | Bar charts of every country and region. **Search box** to filter them. Hover a bar for its positions; **click a bar** to list every position in that country or region |
-| **≡ Holdings** | Every position with name, ISIN, ticker, country, sector, value, weight and sources; filter, sort by any column, **Export CSV** |
-| **▤ Accounts** | List of accounts; for the selected one: value, share, asset classes, top countries, top sectors and every position with its weight in the account. **Click a country or sector** to list that account's positions in it |
-| **∑ Metrics** | Diversification, fees, valuation and income of the whole portfolio (see below) |
-| **⚠ Data** | Three tabs. **Issues**: every missing or guessed piece of data, with manual correction (see below). **Scan log**: every lookup of the scan, source by source. **Data sources**: for each position, where its name, country, sector and asset class come from |
-| **⚖ Rebalance Assistant** | Opened from the Portfolio card: what to buy with your next contribution to reach a target allocation (see below) |
-| **± Sim.** | Only with test positions: how they shift the sector and country weights |
+### Tabs
 
-**Position lists** (opened from a country, region or account): each position with its account, its value in that
-country / sector, its share of the portfolio (or of the account) and the part of the position that sits there (100%
-for a stock, a share for a fund). **← Back** returns to the previous window.
+The tab bar at the top switches between six views. The active tab is kept when the app refreshes (after a correction
+or a test position, for instance).
 
-**Data sources tags**: *Database* (FinanceDatabase, OpenFIGI), *Issuer data*, *Yahoo Finance*, *Estimate* (with what
-it was estimated from), *Manual*, *Your file*, *Not found*.
+| Tab | What it shows |
+|-----|---------------|
+| **Overview** | The globe, coloured by the weight of each country, with the summary cards around it |
+| **Geography** | Bar charts of every country and region, with a search box. Hover a bar for its positions, click it to list them |
+| **Sectors** | A treemap of sectors and the positions inside each; click a sector to zoom in |
+| **Holdings** | The asset classes at the top, then every position with name, ISIN, ticker, country, sector, value, weight and sources. Filter, sort by any column, **Export CSV** |
+| **Accounts** | Each account with its value, share, asset classes, top countries, top sectors and positions. Click a country or sector to list that account's positions in it |
+| **Metrics** | Diversification, costs, valuation and income of the whole portfolio ([details](#metrics)) |
+| **Simulation** | Only with test positions: how they shift the sector and country weights |
 
----
+### The overview
 
-## Data issues and manual corrections
+- **Portfolio** card: total value, positions, countries, sectors, share resolved and notes (excluded ETFs, value with
+  no mappable country), with the **Rebalance Assistant** and **＋ Test a position** buttons.
+- **Accounts** card: value, share and number of positions of each account. Click one to open it.
+- **Top countries** and **Top sectors**: hover a row for its positions; click a country to fly the globe there; click a
+  title to open the matching tab.
+- **Simulation** card (with test positions only): edit or remove each one and see the largest shifts.
+- **Details**: **Data** (issues, scan log and data sources), **⟲ Restart** (back to the upload page) and **GitHub**.
+- **On the globe**: drag to spin, scroll to zoom, hover a country to list its positions, click to fly to it.
 
-The **Issues** tab of the **⚠ Data** window lists, sorted by weight and with a summary ("3 issues · 2.8% of the portfolio affected"):
+### Search
 
-- ETFs and funds with no data at all, and why (e.g. "yfinance: quoteType MUTUALFUND");
-- stocks not identified, or missing a country or a sector;
-- countries guessed from the ISIN prefix, or not found on the map;
-- ETFs with 5% or more of the fund without a country or sector;
-- for each: its weight in the whole portfolio and where the data was looked for.
+The **magnifier** to the right of the tabs opens a search box. Press **/** or **Ctrl K** from anywhere to open it.
 
-**✎ Fix** opens an editor prefilled with the position's current breakdown: one line per country and per sector with
-a percentage, suggestions while typing, lines to add or remove. **Save correction** replaces what was found
-everywhere in the app (each list is rescaled to 100%); it also brings an excluded ETF back into the portfolio.
-Corrections are listed under **Manual corrections** with **Edit** and **Reset**, and tagged *Manual* in Data
-sources. They last for the session.
+| Type | What happens |
+|------|--------------|
+| Positions, by name, ISIN, ticker, country, sector or asset class | Opens **Holdings**, filtered on that position |
+| Countries, regions, sectors | Lists every position exposed to it |
+| Accounts | Opens that account in **Accounts** |
+| Asset classes | Opens **Holdings**, filtered on that class |
+| Metrics (diversification, home bias, fees, P/E, dividends…) | Opens **Metrics** and highlights that card |
+| Tabs and actions (Rebalance Assistant, Test a position, Data issues, Data sources, Scan log, Export CSV, GitHub, Restart) | Runs it. Restart asks for confirmation |
 
----
+Results are ranked by relevance with the matching letters highlighted. Accents are ignored and common French terms
+work too ("frais", "pays", "rééquilibrer"…). Use **↑ ↓** to move, **↵** to open and **Esc** to close.
 
-## Testing a position
+### Data sources
 
-**＋ Test a position**: enter an ISIN and a value. An ETF from the snapshot is added at once; any other ISIN is
-scanned first and added if it resolves to a stock or a Yahoo-estimated ETF. Test positions go into a "Simulation"
-account and show in the Simulation card and the **± Sim.** window.
+Every value in **Data → Data sources** carries a tag: *Database* (FinanceDatabase, OpenFIGI), *Issuer data*,
+*Yahoo Finance*, *Estimate* (with what it was estimated from), *Manual*, *Your file* or *Not found*.
 
 ---
 
 ## Rebalance Assistant
 
-Set a target allocation and an amount to invest; the assistant tells you exactly what to buy, line by line, to get
+Set a target allocation and an amount to invest. The assistant tells you exactly what to buy, line by line, to get
 closer to it **without selling anything** (selling is an option you switch on).
 
 - **Targets** mix freely: countries, regions, sectors and asset classes, for example 55% United States, 15% Europe,
-  12% Information Technology. **Start from my current** fills a dimension with today's top categories to edit.
-  Categories are measured through your funds (an ETF counts for each country and sector it holds).
-- **The plan** lists each line to buy (or sell) with its amount, its weight before and after, and which targets it
+  12% Information Technology. **Start from my current** fills a dimension with today's top categories at their exact
+  weights, ready to edit. Categories are measured through your funds (an ETF counts for each country and sector it
+  holds).
+- **The plan** lists each line to buy (or sell) with its amount, its weight before and after, and the targets it
   helps. **Export plan (CSV)** and **Copy** give you the list to place your orders.
-- **Options**: trade in at most N lines (a monthly contribution is rarely spread over 30 ETFs), round amounts to
-  10 / 50 / 100, leave out the lines you do not want to touch, and allow selling overweight lines. Selling is only
-  proposed when a target is off by more than half a point.
-- **Insights**: the average gap to your targets before and after; how much you would have to invest in total for
-  buying alone to fix an overweight (with this month's amount that may not be enough); how selling would compare;
-  the number of months of the same contribution to get within one point of every target (markets assumed flat);
-  and a warning when none of your lines gives exposure to a target.
+- **Options**: trade in at most N lines, round amounts to 10 / 50 / 100, leave out the lines you do not want to touch,
+  enter your trading fees (fixed, percent, minimum), and allow selling overweight lines. Selling is only proposed when
+  a target is off by more than half a point.
+- **Insights**: the average gap to your targets before and after; how much you would need to invest for buying alone
+  to fix an overweight; how selling would compare; the number of months of the same contribution to get within one
+  point of every target (markets assumed flat); and a warning when none of your lines gives exposure to a target.
 - **How it works**: the plan minimises the squared gap between each target and the portfolio's weight after the
-  trade, solved in your browser so it updates as you type. Your targets are remembered in your browser.
+  trade. It is solved in your browser, so it updates as you type, and your targets are remembered there.
 
 ---
 
 ## Metrics
 
-The **∑ Metrics** window measures the portfolio as a whole. Funds are looked through, so an ETF counts for each country and
-sector it holds. Every figure has an ⓘ with its definition, and every figure built from incomplete data says how much
-of the portfolio it covers.
+The **Metrics** tab measures the portfolio as a whole. Funds are looked through, so an ETF counts for each country and
+sector it holds. Every figure has an ⓘ with its definition, and every figure built from incomplete data states how
+much of the portfolio it covers.
 
 **Diversification**
-- **Geographic and sector diversification**: the Herfindahl-Hirschman index (sum of squared weights, out of 10,000) and
-  the *effective number* of countries or sectors (1 / HHI), next to the same figure for the world index (MSCI ACWI).
-  Unknown and cash are left out.
-- **Position concentration**: largest line, top 5, top 10, effective number of positions.
+
+- **Geographic and sector diversification**: the Herfindahl-Hirschman index (sum of squared weights, out of 10,000)
+  and the *effective number* of countries or sectors (1 / HHI), next to the same figure for the world index
+  (MSCI ACWI). Unknown and cash are left out.
+- **Position concentration**: largest line, top 5, top 10 and effective number of positions.
 - **Home bias**: your weight in a country of your choice (France by default) against the world index.
 - **Emerging markets** and **currency exposure** (by the underlying country, not the fund's trading currency).
-- **Tilt against the world index**: biggest over- and underweights by country and sector, and the active share.
-- **Funds that may overlap**: pairs of funds with a near-identical country and sector breakdown. A hint only: the
-  data has no individual stocks.
+- **Tilt against the world index**: largest over- and underweights by country and sector, and the active share.
+- **Funds that may overlap**: pairs of funds with a near-identical country and sector breakdown. A hint only, since
+  the data has no individual stocks.
 
 **Costs**
+
 - **Fund fees**: weighted annual fee (TER) of your ETFs and funds, the yearly amount, and the lines that cost most.
-  Trading fees per order (fixed, percent, minimum) are entered in the Rebalance Assistant, which shows the cost of its
-  plan.
 
-**Valuation and income**: P/E (trailing and forward), dividend income and yield, company size. The P/E is averaged
-the harmonic way (total price over total earnings); loss-making companies and impossible values are left out.
+**Valuation and income**
 
-**Where the numbers come from.** Stocks: Yahoo Finance, looked up when the results open (about 8 at a time, kept for a
-day). ETFs: `data/etf_costs.csv.gz` (annual fee from Amundi's data and Yahoo, P/E and yield from Yahoo), or Yahoo
-directly for an ETF that is not in the snapshot. Stocks have no fund fee; SCPI and euro funds have fees we do not know,
-so they are listed as missing. Your trading fees stay in your browser.
+- **P/E** (trailing and forward), **dividend income** and yield, and **company size**. The P/E is averaged the
+  harmonic way (total price over total earnings); loss-making companies and impossible values are left out.
+
+**Where the numbers come from.** Stocks: Yahoo Finance, looked up when the results open (about 8 at a time, cached for
+a day). ETFs: `data/etf_costs.csv.gz` (annual fee from Amundi's data and Yahoo, P/E and yield from Yahoo), or Yahoo
+directly for an ETF outside the snapshot. Stocks have no fund fee; SCPI and euro funds have fees that are not
+published, so they are listed as missing.
+
+---
+
+## Data issues and manual corrections
+
+**Data → Issues** lists every missing or guessed piece of data, sorted by weight, with a summary such as
+"3 issues · 2.8% of the portfolio affected":
+
+- ETFs and funds with no data at all, and why;
+- stocks not identified, or missing a country or a sector;
+- countries guessed from the ISIN prefix, or not found on the map;
+- ETFs with 5% or more of the fund without a country or sector.
+
+**✎ Fix** opens an editor prefilled with the position's current breakdown: one line per country and per sector with a
+percentage, suggestions while typing, and lines to add or remove. **Save correction** replaces what was found
+everywhere in the app (each list is rescaled to 100%) and also brings an excluded ETF back into the portfolio.
+Corrections are listed under **Manual corrections** with **Edit** and **Reset**, are tagged *Manual* in Data sources,
+and last for the session.
+
+---
+
+## Testing a position
+
+**＋ Test a position**: enter an ISIN and a value. An ETF from the snapshot is added at once; any other ISIN is scanned
+first and added if it resolves to a stock or a Yahoo-estimated ETF. Test positions go into a "Simulation" account and
+show in the Simulation card and tab, where they can be edited or removed.
 
 ---
 
 ## Demo portfolio
 
-About 183k over three accounts (Interactive Brokers, Fidelity, Charles Schwab): world, emerging, US, Europe,
-Pacific, Latin America, quality, water, property and small-cap ETFs, two bond ETFs, around fifty stocks from every
-region, a SCPI, a euro fund and cash. It covers 50 countries and all 11 sectors, and opens instantly (its lookups are
-pre-computed).
+About 183k spread over six accounts: Interactive Brokers, Boursorama (PEA), Fidelity, Linxea (life insurance),
+Charles Schwab and Saxo. It holds world, emerging, US, Europe, Pacific, Latin America, quality, water, property and
+small-cap ETFs, two bond ETFs, around fifty stocks from every region, a SCPI, a euro fund and cash. It covers 50
+countries and all 11 sectors, and opens instantly because its lookups are pre-computed.
 
 ---
 
@@ -283,7 +329,7 @@ pre-computed).
 
 Uploaded files stay in the memory of your session: nothing is written to disk or kept after the session ends. For a
 stock or ETF the embedded data does not cover, only its ISIN (or a fund ticker) is sent to Yahoo Finance or OpenFIGI;
-values, names and accounts never leave the app.
+values, names and accounts never leave the app. Rebalance targets and trading fees are stored in your browser only.
 
 ---
 
@@ -300,6 +346,8 @@ values, names and accounts never leave the app.
 
 ## Run locally
 
+Python 3.12 is recommended.
+
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
@@ -310,33 +358,48 @@ On Windows you can also double-click `run.bat`.
 ## Deploy on Streamlit Community Cloud
 
 1. Push this folder to a GitHub repository.
-2. At [share.streamlit.io](https://share.streamlit.io), click **Create app**, pick the repository and `app.py`.
+2. At [share.streamlit.io](https://share.streamlit.io), click **Create app**, then pick the repository and `app.py`.
 3. Under **Advanced settings**, choose Python 3.12. To lift OpenFIGI's rate limit, add a secret:
-   `OPENFIGI_API_KEY = "your-key"`. Get a free key at [openfigi.com](https://www.openfigi.com/api).
+   `OPENFIGI_API_KEY = "your-key"` (free key at [openfigi.com](https://www.openfigi.com/api)).
 
 ## Project layout
 
 | Path | What it is |
 |------|------------|
-| `app.py` | The app: scan, analysis, cockpit and detail windows |
+| `app.py` | The app: import flow, scan, analysis, globe, tabs, search and windows |
 | `importer.py` | Reads broker exports and detects their columns, accounts and special lines |
 | `rebalance.py` | The Rebalance Assistant: exposure data, window and calculation |
-| `metrics.py` | The Metrics window: Yahoo valuation data, fees, world-index benchmark and the figures |
+| `metrics.py` | The Metrics tab: Yahoo valuation data, fees, world-index benchmark and the figures |
 | `run.bat` | Starts the app on Windows |
 | `.streamlit/config.toml` | Theme and the 5 MB upload limit |
+| `assets/` | Logo and the README screenshot |
 | `data/fd_equities.csv.gz` | FinanceDatabase snapshot: ISIN → ticker, name, country, sector |
 | `data/fd_etf_tickers.csv.gz` | Every Yahoo ticker of each ETF, to estimate ETFs missing from the snapshot |
-| `data/etf_funds.csv.gz` | One row per ETF: name, issuer, date, asset class, how its breakdown was built |
+| `data/etf_funds.csv.gz` | One row per ETF: name, issuer, date, asset class and how its breakdown was built |
 | `data/etf_exposure.csv.gz` | Each ETF's 10 largest countries and sectors, the rest as "Other" |
+| `data/etf_costs.csv.gz` | Each ETF's annual fee, P/E and dividend yield |
 | `data/countries_50m.geojson` | Natural Earth country shapes for the globe |
 | `data/demo_portfolio.csv` | The demo portfolio (ISIN, value, name, account) |
 | `data/demo_results.json` | The demo stocks' pre-computed lookups, so the demo opens instantly |
 | `data/demo_fundamentals.json` | The demo stocks' P/E, yield and market cap, so its metrics open instantly |
-| `data/etf_costs.csv.gz` | Each ETF's annual fee, P/E and dividend yield |
 
 ## Refreshing the data
 
-The files in `data/` are snapshots, refreshed offline about once a month by a single maintenance script that is not
-part of this repository: it rebuilds the FinanceDatabase extracts and the ETF country / sector snapshot. The app only
-reads these files at runtime; stocks missing from the snapshot are still resolved live through Yahoo Finance and
-OpenFIGI.
+The files in `data/` are snapshots, refreshed offline about once a month by a maintenance script that is not part of
+this repository: it rebuilds the FinanceDatabase extracts and the ETF country and sector snapshot. The app only reads
+these files at runtime; stocks missing from the snapshot are still resolved live through Yahoo Finance and OpenFIGI.
+
+## Credits
+
+- Stock and ETF reference data: [FinanceDatabase](https://github.com/JerBouma/FinanceDatabase),
+  [Yahoo Finance](https://finance.yahoo.com) via [yfinance](https://github.com/ranaroussi/yfinance),
+  [OpenFIGI](https://www.openfigi.com), and the ETF issuers' published fund data.
+- Country shapes: [Natural Earth](https://www.naturalearthdata.com).
+- Globe and charts: [globe.gl](https://globe.gl) and [Apache ECharts](https://echarts.apache.org).
+
+<div align="center">
+<br>
+
+Made by [Gabin Lê](https://www.linkedin.com/in/gabin-le/) · 2026
+
+</div>

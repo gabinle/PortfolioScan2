@@ -60,11 +60,15 @@ PLANE = "#0a0c10"
 # Loading screen: covers the page while the results of an analysis are built (logo on the page background).
 # The page hides it by itself after BOOT_SECONDS (CSS animation, timed from when it appears on screen), so an error can
 # never leave the page hidden; the server keeps it a little longer so the animation can play, and removes it.
+# On the first display of an analysis, the key figures then appear on this same screen, under the logo (show_figures),
+# and the screen fades away onto the dashboard: nothing is swapped, so nothing can flicker.
 BOOT_SECONDS = 2   # how long the loading screen shows (before the first results of a portfolio)
+FIGS_SECONDS = 3.2  # how long the key figures stay before the screen fades away
 def boot_css(seconds: float) -> str:
     return f"""<style>
-.stElementContainer:has(.boot) {{ position: fixed !important; height: 0 !important; margin: 0 !important;
-                                    opacity: 1 !important; animation: none !important; transition: none !important; }}
+.stElementContainer:has(.boot), .stElementContainer:has(.bootfigs) {{ position: fixed !important; height: 0 !important;
+    margin: 0 !important; opacity: 1 !important; animation: none !important; transition: none !important;
+    z-index: 999999 !important; }}  /* above the cockpit frame, which comes later in the page */
 .boot {{ position: fixed; inset: 0; z-index: 999999; background: {PLANE}; display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 1.4rem; animation: bootaway .3s ease {seconds - .3}s forwards; }}
 .boot img {{ width: 112px; height: 112px; }}
@@ -73,6 +77,27 @@ def boot_css(seconds: float) -> str:
                      animation: bootbar 1.4s ease-in-out infinite; }}
 @keyframes bootbar {{ from {{ transform: translateX(-100%); }} to {{ transform: translateX(250%); }} }}
 @keyframes bootaway {{ to {{ opacity: 0; visibility: hidden; }} }}
+/* Key figures: a layer over the loading screen (the logo stays where it is); the bar steps aside, the figures fade in
+   below the logo, then both layers fade away together. New animation names, so they start when the figures arrive. */
+body:has(.bootfigs) .boot {{ animation: figsaway .6s ease {FIGS_SECONDS}s forwards; }}
+body:has(.bootfigs) .boot .bar {{ animation: figsbar .5s ease forwards; }}
+@keyframes figsbar {{ to {{ opacity: 0; }} }}
+@keyframes figsaway {{ to {{ opacity: 0; visibility: hidden; }} }}
+.bootfigs {{ position: fixed; left: 0; right: 0; top: calc(50% + 74px); z-index: 1000000; pointer-events: none;
+             display: flex; flex-direction: column; align-items: center; text-align: center;
+             animation: figsaway .6s ease {FIGS_SECONDS}s forwards; }}
+.bootfigs .bk {{ font: 500 10.5px '{FONT_MONO}', monospace; letter-spacing: .3em; text-transform: uppercase;
+                 color: {MUTED}; animation: figin .7s .25s ease both; }}
+.bootfigs .bg {{ display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0 44px; margin-top: 24px; }}
+.bootfigs .bt {{ animation: figin .8s calc(.5s + var(--d) * .18s) ease both; }}
+.bootfigs .bs {{ width: 1px; height: 42px; background: rgba(255,255,255,.1); animation: figin .8s .7s ease both; }}
+.bootfigs .bt b {{ display: block; font: 600 clamp(28px, 3.6vw, 40px) '{FONT_SANS}', sans-serif; letter-spacing: -.02em;
+                   color: {INK}; font-variant-numeric: tabular-nums; }}
+.bootfigs .bt span {{ display: block; margin-top: 6px; font: 10.5px '{FONT_MONO}', monospace; letter-spacing: .14em;
+                      text-transform: uppercase; color: {MUTED}; }}
+@keyframes figin {{ from {{ opacity: 0; transform: translateY(6px); }} to {{ opacity: 1; transform: none; }} }}
+@media (max-width: 600px) {{ .bootfigs .bs {{ display: none; }} .bootfigs .bg {{ gap: 18px 28px; }} }}
+@media (prefers-reduced-motion: reduce) {{ .bootfigs .bk, .bootfigs .bt, .bootfigs .bs {{ animation: none; }} }}
 </style>"""
 
 
@@ -81,23 +106,42 @@ BOOT_HTML = f"""<div class="boot"><img alt="" src="data:image/svg+xml;base64,{ba
 <div class="bar"></div></div>"""
 
 
-def show_boot(active: bool, seconds: float = BOOT_SECONDS):
-    """Reserve the loading screen's place in the page, and fill it when `active`. The two elements are always added,
+def show_boot(active: bool, seconds: float = BOOT_SECONDS, figures: bool = False):
+    """Reserve the loading screen's place in the page, and fill it when `active`. The elements are always added,
     even when idle: Streamlit matches elements by position, so a page that changes shape between runs would reload its
-    iframes (the globe would restart on every upload)."""
-    st.markdown(boot_css(seconds), unsafe_allow_html=True)  # apart: Streamlit hides any block that holds a <style>
-    holder = st.empty()
+    iframes (the globe would restart on every upload).
+
+    `figures`: the key figures will be shown on it (show_figures) before it goes, so it does not fade by itself; its
+    own CSS fade only stays as a late safety net."""
+    st.markdown(boot_css(seconds + 30 if figures else seconds), unsafe_allow_html=True)  # apart: Streamlit hides any block that holds a <style>
+    holder, figs = st.empty(), st.empty()
     if active:
         holder.markdown(BOOT_HTML, unsafe_allow_html=True)
-    return holder, time.time(), active, seconds
+    return holder, time.time(), active, seconds, figs
+
+
+def show_figures(boot, figures: list[tuple[str, str]]):
+    """Show [(value, label)] under the loading screen's logo; the screen then fades away by itself (FIGS_SECONDS)."""
+    holder, since, active, seconds, figs = boot
+    if not active:
+        return boot
+    figs.markdown('<div class="bootfigs"><div class="bk">Analysis complete</div><div class="bg">'
+                  + '<span class="bs"></span>'.join(f'<div class="bt" style="--d:{i}"><b>{html.escape(v)}</b>'
+                                                     f'<span>{html.escape(lab)}</span></div>'
+                                                     for i, (v, lab) in enumerate(figures))
+                  + '</div></div>', unsafe_allow_html=True)
+    return holder, time.time(), active, FIGS_SECONDS + 0.6 - 0.8, figs  # hide_boot waits for the fade, then clears
 
 
 def hide_boot(boot):
     """Remove the loading screen once the page is built and its CSS fade-out has played."""
-    holder, since, active, seconds = boot
+    holder, since, active, seconds, figs = boot
     if active:
         time.sleep(max(0.0, seconds + 0.8 - (time.time() - since)))
         holder.empty()
+        figs.empty()
+
+
 STAGE = "#07090d"   # page / globe backdrop
 SURFACE = "#12151b"
 INK = "#f0efec"
@@ -449,7 +493,7 @@ def parse_portfolio(data: bytes):
 
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
-DEMO_FILE = DATA_DIR / "demo_portfolio.csv"     # isin,value,name,account: 3 accounts, stocks, ETFs, SCPI, cash
+DEMO_FILE = DATA_DIR / "demo_portfolio.csv"     # isin,value,name,account: 6 accounts, stocks, ETFs, SCPI, cash
 DEMO_RESULTS = DATA_DIR / "demo_results.json"   # its lookups, pre-scanned so the demo opens instantly
 DEMO_FUNDAMENTALS = DATA_DIR / "demo_fundamentals.json"  # their P/E, yield, market cap...: ISIN -> fields
 ETF_COSTS = DATA_DIR / "etf_costs.csv.gz"        # each ETF's annual fee, P/E and yield (update script)
@@ -1452,10 +1496,12 @@ def region_of(iso3) -> str:
     return (shape_for(iso3) or {}).get("region", "Unknown")
 
 
-def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.DataFrame | None = None):
+def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.DataFrame | None = None, intro=False):
     """The whole app view: a spinning globe with glass cards around it, hover inspectors and detail windows.
 
     `demo` renders the landing-page showcase instead: just the globe and a column of sector/country cards.
+    `intro`: the first display of a new analysis. Returns its key figures, which the loading screen shows before it
+    fades away onto this view (the globe then zooms in gently).
     """
     shapes = load_country_shapes()
     df = df.assign(region=np.where(df["country"].isin(NEUTRAL), df["country"], df["iso3"].map(region_of)))
@@ -1638,19 +1684,14 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
       <button class="cta" data-open="test" data-title="Test a position" data-small="1">＋ Test a position</button>"""
     left = [
         ("Portfolio", kpis),
-        ("Asset classes", _rows([(k, 100 * v, "", None, None) for k, v in asset_w.items()], grey=())),
         ("Accounts", acc_card),
-        ("Top holdings", _rows([(h.label, 100 * h.weight,
-                                 f"ETF · {h.asset.lower()}" if h.country == h.sector == "Diversified"
-                                 else " · ".join(dict.fromkeys([h.sector, h.country])), None, None)
-                                for h in holdings.head(6).itertuples()])),
     ]
     right = [("Top countries", _rows(country_rows, "c", fly=True)),
              ("Top sectors", _rows([(k, 100 * v, "", None, None) for k, v in sec_w.head(7).items()], "s"))]
-    buttons = [("sectors", "▦ Sectors", "Sectors"), ("countries", "◉ Countries", "Countries & regions"),
-               ("holdings", "≡ Holdings", "Holdings"), ("accounts", "▤ Accounts", "Accounts"),
-               ("metrics", "∑ Metrics", "Portfolio metrics"),
-               ("data", f"⚠ Data · {len(issues)}" if issues else "✓ Data", "Data issues & log")]
+    # Top tab bar: the overview is the globe and its cards, every other tab is a full-page view.
+    tabs = [("overview", "Overview"), ("countries", "Geography"), ("sectors", "Sectors"),
+            ("holdings", "Holdings"), ("accounts", "Accounts"), ("metrics", "Metrics")]
+    buttons = [("data", f"⚠ Data · {len(issues)}" if issues else "✓ Data", "Data issues & log")]
     charts = {"tree": treemap_spec(df),
               "ctrybars": bars_spec(country_w, top=20), "regbars": bars_spec(region_w, top=20)}
     sim_tpl = ""
@@ -1668,7 +1709,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
                                     f'{_delta_rows(top_deltas(sim["cur_sector"], sim["new_sector"]))}'
                                     f'<div class="dh">country shift</div>'
                                     f'{_delta_rows(top_deltas(sim["cur_country"], sim["new_country"]))}'))
-        buttons.insert(3, ("sim", "± Sim.", "Simulation impact"))
+        tabs.append(("sim", "Simulation"))
         charts["dsec"] = delta_spec(sim["cur_sector"], sim["new_sector"])
         charts["dctry"] = delta_spec(sim["cur_country"], sim["new_country"])
         sim_tpl = (f'<div class="simlist">{pos}</div><div class="mg half">'
@@ -1681,16 +1722,22 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
         + f'<a href="{GITHUB_URL}" target="_blank" rel="noopener noreferrer" title="Source code on GitHub">'
         + '⌥ GitHub ↗</a></div>')
     right.append(("Details", dock))
+    tabbar = ('<nav id="tabbar"><span class="ind"></span>' + "".join(
+        f'<button data-go="{k}" class="{"on" if k == "overview" else ""}">{label}</button>' for k, label in tabs)
+        + '<div class="srch" id="srch"><button id="srch-btn" title="Search anything  ( / or Ctrl K )">'
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" '
+        'stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>'
+        '<input id="srch-in" placeholder="Search assets, countries, actions…" autocomplete="off" spellcheck="false">'
+        '<kbd id="srch-esc">esc</kbd></div></nav><div id="srch-res" hidden></div>')
     hint = "drag to spin · scroll to zoom · hover for positions · click a country to fly"
-    if demo:  # showcase: no portfolio card, no detail windows, just the globe and two ranking cards
-        left, charts = [], {}
+    if demo:  # showcase: no portfolio card, no tabs, just the globe and two ranking cards
+        left, charts, tabbar = [], {}, ""
         right = [("Top sectors", _rows([(k, 100 * v, "", None, None) for k, v in sec_w.head(7).items()], "s")),
                  ("Top countries", _rows(country_rows[:7], "c", fly=True))]
         hint = "sample portfolio · drag to spin · hover for positions"
 
-    # Card titles that open the matching detail window (the rows keep their own hover / fly behaviour).
-    title_opens = {} if demo else {"Top countries": ("countries", "Countries & regions"),
-                                   "Top sectors": ("sectors", "Sectors")}
+    # Card titles that switch to the matching tab (the rows keep their own hover / fly behaviour).
+    title_opens = {} if demo else {"Top countries": ("countries", "Geography"), "Top sectors": ("sectors", "Sectors")}
 
     def cards(items):
         # The inner stack centres vertically yet still scrolls from the top when it overflows.
@@ -1698,19 +1745,19 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
             if t not in title_opens:
                 return f"<h3>{t}</h3>"
             k, title = title_opens[t]
-            return f'<h3 class="lnk" data-open="{k}" data-title="{title}" title="Open {title}">{t}</h3>'
-        whole = {} if demo else {"Accounts": ("accounts", "Accounts")}  # the whole card opens its window
+            return f'<h3 class="lnk" data-go="{k}" title="Open {title}">{t}</h3>'
+        whole = {} if demo else {"Accounts": ("accounts", "Accounts")}  # the whole card opens its tab
 
         def card(t, body):
             if t not in whole:
                 return f'<section class="card">{head(t)}{body}</section>'
             k, title = whole[t]
-            return (f'<section class="card clickable" data-open="{k}" data-title="{title}" title="Open {title}">'
+            return (f'<section class="card clickable" data-go="{k}" title="Open {title}">'
                     f'<h3 class="lnk">{t}</h3>{body}</section>')
         return '<div class="stack">' + "".join(card(t, body) for t, body in items) + "</div>"
 
     positions = [{"n": h.label, "i": h.isin, "t": h.ticker, "c": h.country, "s": h.sector, "r": h.region,
-                  "v": float(h.value), "p": 100 * float(h.weight), "src": h.sources}
+                  "a": h.asset, "v": float(h.value), "p": 100 * float(h.weight), "src": h.sources}
                  for h in holdings.itertuples()]
 
     def per_position(col):
@@ -1736,6 +1783,13 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
         f"{c['js']}\nreturn option; }})()}};\n" for k, c in charts.items())
 
     top = f"{g.iloc[0]['country']} · {g.iloc[0]['pct']:.1f}%" if len(g) else "—"
+    figures = []  # key figures for the loading screen (first display of an analysis)
+    if intro and not demo:
+        # Precision: the share of the whole value (excluded funds included) whose country and sector are both known.
+        unknown = df.loc[(df["sector"] == "Unknown") | ((df["iso3"].isna() | df["country"].isin(missing))
+                                                         & ~df["country"].isin([CASH_LABEL, "Other"])), "value"].sum()
+        precision = 100 * (total - unknown) / (total + float(excluded["value"].sum()) or 1)
+        figures = [(fmt_money(total), "total value"), (f"{len(holdings)}", "positions"), (f"{precision:.1f}%", "precision")]
     legend = ", ".join(rgb_hex(ramp(i / 4, GLOBE_STOPS)) for i in range(5))
     payload = _js_json({"features": features, "rings": rings})
 
@@ -1755,6 +1809,103 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
          overflow-y:auto; scrollbar-width:none; z-index:5; }}
   .col::-webkit-scrollbar {{ display:none; }}
   #left {{ left:16px; }}
+  /* Results page: the brand sits top left, and the left column starts below it. */
+  .brand {{ position:absolute; top:12px; left:20px; z-index:6; }}
+  body:not(.demo) #left {{ top:72px; }}
+  /* Top tab bar: a glass pill; a glowing indicator slides under the active tab. */
+  /* The tabs and the folded magnifier (8px gap + 46px pill) are centred as one group. */
+  #tabbar {{ position:absolute; top:12px; left:50%; transform:translateX(calc(-50% - 27px)); z-index:7; display:flex; gap:2px;
+            padding:4px; background:rgba(12,15,21,.74); border:1px solid rgba(255,255,255,.08); border-radius:12px;
+            backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 8px 30px rgba(0,0,0,.35); }}
+  #tabbar button {{ position:relative; z-index:1; font:500 13.5px '{FONT_SANS}',sans-serif; color:{INK2};
+                   background:transparent; cursor:pointer; border:0; border-radius:9px; padding:8px 18px;
+                   white-space:nowrap; transition:color .2s; }}
+  #tabbar button:hover {{ color:{INK}; }}
+  #tabbar button.on {{ color:#86b6ef; }}
+  #tabbar .ind {{ position:absolute; top:4px; bottom:4px; left:0; width:0; border-radius:9px; pointer-events:none;
+                 background:rgba(57,135,229,.16); border:1px solid rgba(57,135,229,.35);
+                 box-shadow:0 0 18px rgba(57,135,229,.25), inset 0 0 12px rgba(57,135,229,.12);
+                 transition:left .32s cubic-bezier(.4,0,.2,1), width .32s cubic-bezier(.4,0,.2,1); }}
+  /* Search: a magnifier pill right of the tabs that widens into a search box, results drop below it. */
+  #tabbar .srch {{ position:absolute; left:calc(100% + 9px); top:-1px; bottom:-1px; display:flex; align-items:center; gap:2px;
+                  padding:0 4px; background:rgba(12,15,21,.74); border:1px solid rgba(255,255,255,.08); border-radius:12px;
+                  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 8px 30px rgba(0,0,0,.35);
+                  transition:border-color .2s, box-shadow .2s; }}
+  #tabbar .srch:hover {{ border-color:rgba(57,135,229,.35); }}
+  #tabbar .srch.open {{ border-color:rgba(57,135,229,.55);
+                       box-shadow:0 0 0 3px rgba(57,135,229,.12), 0 0 22px rgba(57,135,229,.2), 0 8px 30px rgba(0,0,0,.35); }}
+  #tabbar .srch button {{ width:34px; height:34px; padding:0; display:grid; place-items:center; color:{INK2}; }}
+  #tabbar .srch:hover button, #tabbar .srch.open button {{ color:#86b6ef; }}
+  #srch-in {{ width:0; padding:0; opacity:0; border:0; outline:none; background:transparent; color:{INK};
+             font:13.5px '{FONT_SANS}',sans-serif;
+             transition:width .32s cubic-bezier(.4,0,.2,1), opacity .2s, padding .32s; }}
+  #srch-in::placeholder {{ color:{MUTED}; }}
+  .srch.open #srch-in {{ width:clamp(130px, calc(50vw - 400px), 270px); opacity:1; padding-right:6px; }}
+  #srch-esc {{ display:none; font:10px '{FONT_MONO}',monospace; color:{MUTED}; border:1px solid rgba(255,255,255,.12);
+              border-radius:5px; padding:2px 5px; margin-right:6px; cursor:pointer; }}
+  .srch.open #srch-esc {{ display:inline-block; }}
+  #srch-res {{ position:fixed; z-index:45; width:min(460px, calc(100vw - 24px)); max-height:min(540px, 72vh);
+              overflow-y:auto; padding:6px; background:rgba(13,17,24,.97); border:1px solid rgba(57,135,229,.45);
+              border-radius:14px; scrollbar-width:thin; scrollbar-color:#2a3546 transparent;
+              box-shadow:0 0 0 1px rgba(57,135,229,.12), 0 24px 60px rgba(0,0,0,.6), 0 0 30px rgba(57,135,229,.18);
+              backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); animation:drop .16s ease-out; }}
+  #srch-res[hidden] {{ display:none; }}
+  @keyframes drop {{ from {{ opacity:0; transform:translateY(-6px); }} to {{ opacity:1; transform:none; }} }}
+  #srch-res .sg {{ font:500 10px '{FONT_MONO}',monospace; letter-spacing:.18em; text-transform:uppercase; color:{MUTED};
+                  padding:10px 10px 5px; }}
+  #srch-res .si {{ display:flex; align-items:center; gap:11px; padding:7px 10px; border-radius:9px; cursor:pointer; }}
+  #srch-res .si.on {{ background:rgba(57,135,229,.14); box-shadow:inset 0 0 0 1px rgba(57,135,229,.35); }}
+  #srch-res .ic {{ flex:none; width:28px; height:28px; display:grid; place-items:center; border-radius:8px; font-size:13px;
+                  color:#86b6ef; background:rgba(57,135,229,.1); border:1px solid rgba(57,135,229,.2); }}
+  #srch-res .tx {{ flex:1; min-width:0; }}
+  #srch-res .l {{ font-size:13px; color:{INK}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+  #srch-res .d {{ font-size:11px; color:{MUTED}; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+  #srch-res .r {{ flex:none; font:11.5px '{FONT_MONO}',monospace; color:#86b6ef; }}
+  #srch-res .k {{ flex:none; visibility:hidden; font:10px '{FONT_MONO}',monospace; color:{INK2};
+                 border:1px solid rgba(255,255,255,.15); border-radius:5px; padding:1px 5px; }}
+  #srch-res .si.on .k {{ visibility:visible; }}
+  #srch-res mark {{ background:none; color:#86b6ef; font-weight:600; }}
+  #srch-res .si.danger .ic {{ color:{RED}; background:rgba(230,103,103,.1); border-color:rgba(230,103,103,.3); }}
+  #srch-res .si.armed {{ background:rgba(230,103,103,.16); box-shadow:inset 0 0 0 1px rgba(230,103,103,.5); }}
+  #srch-res .si.armed .d {{ color:#ffb3b3; }}
+  #srch-res .sempty {{ padding:22px 12px; text-align:center; color:{MUTED}; font-size:12.5px; }}
+  #srch-res .sfoot {{ display:flex; gap:14px; padding:9px 10px 4px; margin-top:4px; border-top:1px solid rgba(255,255,255,.06);
+                     font:10.5px '{FONT_MONO}',monospace; color:{MUTED}; }}
+  #srch-res .sfoot kbd {{ font:inherit; color:{INK2}; border:1px solid rgba(255,255,255,.14); border-radius:4px;
+                         padding:0 4px; margin-right:4px; }}
+  .mt-card.flash {{ animation:flash 1.8s ease-out; }}
+  @keyframes flash {{ 0%, 35% {{ box-shadow:0 0 0 2px {BLUE}, 0 0 34px rgba(57,135,229,.5); }} 100% {{ box-shadow:none; }} }}
+  /* Every tab but the overview: a solid full-page view over the (paused) globe; the cards step aside. */
+  #view {{ position:absolute; top:72px; left:16px; right:16px; bottom:16px; z-index:6; display:flex; flex-direction:column;
+          background:#0c0f15; border:1px solid rgba(57,135,229,.3); border-radius:18px; overflow:hidden;
+          box-shadow:0 30px 80px rgba(0,0,0,.5), 0 0 40px rgba(57,135,229,.1); }}
+  #view[hidden] {{ display:none; }}
+  #view.in {{ animation:viewin .28s cubic-bezier(.2,.8,.2,1); }}
+  #view.out {{ animation:viewout .18s ease-in forwards; }}
+  @keyframes viewin {{ from {{ opacity:0; transform:translateY(10px) scale(.985); }} to {{ opacity:1; transform:none; }} }}
+  @keyframes viewout {{ to {{ opacity:0; transform:translateY(10px) scale(.985); }} }}
+  #vbody {{ flex:1; overflow:auto; padding:16px 18px; scrollbar-width:thin; scrollbar-color:#2a3546 transparent; }}
+  #vbody::-webkit-scrollbar {{ width:10px; height:10px; }}
+  #vbody::-webkit-scrollbar-thumb {{ background:#2a3546; border-radius:10px; border:2px solid #0c0f15; }}
+  #vbody::-webkit-scrollbar-track, #vbody::-webkit-scrollbar-corner {{ background:transparent; }}
+  /* Tab to tab: the old content fades out, the new one slides in from the side of the tab clicked. */
+  #vbody.leave {{ opacity:0; transition:opacity .12s ease-in; }}
+  #vbody.enter-r {{ animation:slidein-r .3s cubic-bezier(.2,.8,.2,1); }}
+  #vbody.enter-l {{ animation:slidein-l .3s cubic-bezier(.2,.8,.2,1); }}
+  @keyframes slidein-r {{ from {{ opacity:0; transform:translateX(24px); }} to {{ opacity:1; transform:none; }} }}
+  @keyframes slidein-l {{ from {{ opacity:0; transform:translateX(-24px); }} to {{ opacity:1; transform:none; }} }}
+  body.tabbed .col, body.tabbed #legend {{ display:none; }}
+  body.back .col, body.back #legend {{ animation:fadein .35s ease-out; }}
+  @keyframes fadein {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
+  @media (prefers-reduced-motion: reduce) {{
+    #view.in, #view.out, #vbody.enter-r, #vbody.enter-l, body.back .col, body.back #legend {{ animation:none; }}
+    #tabbar .ind {{ transition:none; }}
+  }}
+  .assets {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:4px 28px; margin-bottom:18px; }}
+  .logo {{ display:inline-flex; align-items:center; {LOGO_FX} font-weight:700; font-size:1.3rem; line-height:1; }}
+  {LOGO_FX_CSS}
+  .logo i {{ display:inline-flex; position:relative; top:-.06em; font-style:normal; margin-right:.35rem; }}
+  .logo img {{ width:2.4em !important; height:2.4em !important; }}
   /* Landing demo: a full-screen layer; JS shifts the globe right of the page's text column (placeDemoGlobe). */
   body.demo #right {{ right:24px; width:280px; }}
   .chip {{ position:absolute; top:4vh; right:24px; z-index:6; font:500 10.5px '{FONT_MONO}',monospace;
@@ -1778,15 +1929,16 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
          background:linear-gradient(90deg,#1c5cab,{BLUE}); border:1px solid rgba(134,182,239,.5); border-radius:10px;
          padding:9px 12px; box-shadow:0 0 18px rgba(57,135,229,.3); transition:all .15s; }}
   .cta:hover {{ box-shadow:0 0 26px rgba(57,135,229,.55); filter:brightness(1.08); }}
-  .cta.alt {{ position:relative; overflow:hidden; color:#cde2fb; background:rgba(57,135,229,.12); border-color:rgba(134,182,239,.55);
-             box-shadow:0 0 0 0 rgba(57,135,229,.45); animation:ctapulse 2.8s ease-out infinite; }}
-  .cta.alt::after {{ content:""; position:absolute; top:0; bottom:0; width:42%; left:-60%; pointer-events:none;
-                    background:linear-gradient(100deg, transparent, rgba(205,226,251,.38), transparent);
-                    transform:skewX(-18deg); animation:ctashine 3.6s ease-in-out infinite; }}
-  .cta.alt:hover {{ color:#fff; background:rgba(57,135,229,.28); animation-play-state:paused; }}
-  @keyframes ctashine {{ 0%, 55% {{ left:-60%; }} 100% {{ left:130%; }} }}
-  @keyframes ctapulse {{ 0% {{ box-shadow:0 0 0 0 rgba(57,135,229,.45); }} 70%, 100% {{ box-shadow:0 0 0 9px rgba(57,135,229,0); }} }}
-  @media (prefers-reduced-motion: reduce) {{ .cta.alt, .cta.alt::after {{ animation:none; }} }}
+  /* Rebalance Assistant: a steady soft glow that breathes very slowly. */
+  .cta.alt {{ color:#cde2fb; background:rgba(57,135,229,.12); border-color:rgba(134,182,239,.5);
+             box-shadow:0 0 14px rgba(57,135,229,.26), inset 0 0 10px rgba(57,135,229,.1);
+             animation:ctaglow 6s ease-in-out infinite; }}
+  .cta.alt:hover {{ color:#fff; background:rgba(57,135,229,.2); border-color:rgba(134,182,239,.65); filter:none;
+                   box-shadow:0 0 20px rgba(57,135,229,.4), inset 0 0 12px rgba(57,135,229,.16); animation:none; }}
+  @keyframes ctaglow {{
+    0%, 100% {{ box-shadow:0 0 12px rgba(57,135,229,.22), inset 0 0 10px rgba(57,135,229,.09); }}
+    50% {{ box-shadow:0 0 20px rgba(57,135,229,.36), inset 0 0 13px rgba(57,135,229,.15); }} }}
+  @media (prefers-reduced-motion: reduce) {{ .cta.alt {{ animation:none; }} }}
   .cta + .cta {{ margin-top:6px; }}
   .btns .restart {{ border-color:rgba(230,103,103,.4); background:rgba(230,103,103,.07); }}
   .btns .restart:hover {{ background:rgba(230,103,103,.16); box-shadow:0 0 16px rgba(230,103,103,.3); }}
@@ -1995,13 +2147,23 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
     #stage {{ height:auto; }}
     #globe, #glow {{ position:relative; height:460px; }}
     #glow {{ margin-top:-460px; }}
+    .brand {{ position:static; padding:12px 12px 0; }}
+    #tabbar {{ position:static; transform:none; margin:10px 12px 0; overflow-x:auto; scrollbar-width:none; }}
+    #tabbar .srch {{ position:static; flex:none; margin-left:2px; background:none; border:0; box-shadow:none;
+                    backdrop-filter:none; -webkit-backdrop-filter:none; }}
+    .srch.open #srch-in {{ width:160px; }}
+    #view {{ position:static; height:82vh; margin:12px; }}
+    body.tabbed #globe, body.tabbed #glow {{ display:none; }}
+    body:not(.demo) #left {{ top:auto; }}
     .col {{ position:static; width:auto; overflow:visible; padding:12px 12px 0; }}
     .mg.half {{ grid-template-columns:1fr; }}
     #legend .hint {{ display:none; }}
   }}'''}  /* the landing demo sits in a narrower frame but keeps its side-by-side layout */
 </style></head><body class="{'demo' if demo else ''}">
 <div id="stage">
+  {'' if demo else f'<div class="brand"><span class="logo"><i title="PortfolioScan">{LOGO_IMG}</i></span></div>'}{tabbar}
   <div id="globe"></div><div id="glow"></div>
+  <div id="view" hidden><div id="vbody"></div></div>
   <div class="col" id="left">{cards(left)}</div>
   <div class="col" id="right">{cards(right)}</div>
   <div class="hud" id="legend">
@@ -2021,7 +2183,9 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   autocomplete="off"></div><div class="mg half">
   <div><div class="mh">Weight by country</div><div class="ch" data-chart="ctrybars"></div></div>
   <div><div class="mh">Weight by region</div><div class="ch" data-chart="regbars"></div></div></div></template>
-<template id="t-holdings"><div class="tools"><input id="q" placeholder="Filter by name, ISIN, ticker, country, sector…">
+<template id="t-holdings"><div class="mh">Asset classes</div><div class="assets">{
+  _rows([(k, 100 * v, fmt_money(v * total), None, None) for k, v in asset_w.items()], grey=())}</div>
+  <div class="mh">Positions</div><div class="tools"><input id="q" placeholder="Filter by name, ISIN, ticker, country, sector…">
   <button id="csv">⤓ Export CSV</button></div><table><thead id="hh"></thead><tbody id="hb"></tbody></table></template>
 <template id="t-sim">{sim_tpl}</template>
 <template id="t-data"><div class="tabs"><button class="tab on" data-tab="iss">Issues · {len(issues)}</button>
@@ -2202,23 +2366,67 @@ world.onPolygonHover(h => {{
 }});
 world.onPolygonClick(d => {{ if (d.properties.held) flyTo(d.properties.lat, d.properties.lng); }});
 
-// ── detail windows ──────────────────────────────────────────────────────────
-const modal = document.getElementById('modal'), mbody = document.getElementById('mbody');
-const CHS = {{}};  // charts of the open window, by name
-let live = [];
-function openModal(id, title, small) {{
+// ── tabs: the overview is the globe; every other tab fills the page with its view ──
+const view = document.getElementById('view'), vbody = document.getElementById('vbody');
+const CHS = {{}};  // charts of the open tab, by name
+let live = [], curTab = 'overview', goT = null;
+const tabBtns = [...document.querySelectorAll('#tabbar button[data-go]')];
+const tabIndex = id => tabBtns.findIndex(b => b.dataset.go === id);
+function moveInd(instant) {{  // slide the indicator under the active tab
+  const ind = document.querySelector('#tabbar .ind'), b = tabBtns[tabIndex(curTab)];
+  if (!ind || !b) return;
+  if (instant) ind.style.transition = 'none';
+  ind.style.left = b.offsetLeft + 'px'; ind.style.width = b.offsetWidth + 'px';
+  if (instant) {{ ind.offsetWidth; ind.style.transition = ''; }}
+}}
+function go(id, instant) {{
+  if (tabIndex(id) < 0) id = 'overview';  // e.g. the simulation was removed
+  if (id === curTab) return;
   hideInsp(); endGlobeHover();
-  live.forEach(c => c.dispose()); live = [];
-  for (const k in CHS) delete CHS[k];
-  mbody.replaceChildren(document.getElementById('t-' + id).content.cloneNode(true));
-  document.getElementById('mtitle').textContent = title;
-  modal.querySelector('.mbox').classList.toggle('sm', !!small);
-  modal.hidden = false;
+  clearTimeout(goT);
+  const from = curTab;
+  curTab = id;
+  try {{ sessionStorage.setItem('pa.tab', id); }} catch (e) {{}}  // a rerun of the app reopens the same tab
+  tabBtns.forEach(b => b.classList.toggle('on', b.dataset.go === id));
+  moveInd(instant);
+  const dispose = () => {{ live.forEach(c => c.dispose()); live = []; for (const k in CHS) delete CHS[k]; }};
+  view.classList.remove('in', 'out'); vbody.classList.remove('leave', 'enter-r', 'enter-l');
+  if (id === 'overview') {{  // the view fades away, the globe and its cards come back
+    const done = () => {{
+      dispose(); vbody.replaceChildren(); view.hidden = true; view.classList.remove('out');
+      document.body.classList.remove('tabbed');
+      document.body.classList.add('back'); setTimeout(() => document.body.classList.remove('back'), 400);
+      world.width(el.clientWidth).height(el.clientHeight);
+      if (modal.hidden) world.resumeAnimation();
+    }};
+    if (instant) done();
+    else {{ view.offsetWidth; view.classList.add('out'); goT = setTimeout(done, 180); }}
+    return;
+  }}
   world.pauseAnimation();
+  if (from === 'overview' || instant) {{  // the view rises in over the globe
+    document.body.classList.add('tabbed');
+    view.hidden = false;
+    if (!instant) {{ view.offsetWidth; view.classList.add('in'); }}
+    mount(id);
+  }} else {{  // tab to tab: fade the old content out, slide the new one in from the side of the click
+    vbody.classList.add('leave');
+    goT = setTimeout(() => {{
+      vbody.classList.remove('leave');
+      mount(id);
+      vbody.offsetWidth;
+      vbody.classList.add(tabIndex(id) > tabIndex(from) ? 'enter-r' : 'enter-l');
+    }}, 120);
+  }}
+  function mount(id) {{ dispose(); fill(id); }}
+}}
+function fill(id) {{
+  vbody.replaceChildren(document.getElementById('t-' + id).content.cloneNode(true));
+  vbody.scrollTop = 0;
   requestAnimationFrame(() => {{
-    mbody.querySelectorAll('[data-chart]').forEach(c => {{
+    vbody.querySelectorAll('[data-chart]').forEach(c => {{
       const spec = CH[c.dataset.chart];
-      c.style.height = (spec.h === 'fill' ? mbody.clientHeight - 34 : spec.h) + 'px';
+      c.style.height = (spec.h === 'fill' ? vbody.clientHeight - 34 : spec.h) + 'px';
       const chart = echarts.init(c, null, {{ renderer: 'canvas' }});
       CHS[c.dataset.chart] = chart;
       if (c.dataset.chart === 'tree') TREE.chart = chart;  // before setOption: the label formatter reads it
@@ -2234,30 +2442,46 @@ function openModal(id, title, small) {{
     }});
     if (id === 'holdings') initTable();
     if (id === 'accounts') initAccounts();
-    if (id === 'data') {{ initFix(); initTabs(); }}
-    if (id === 'rebalance') initRebalance();
     if (id === 'metrics') initMetrics();
     if (id === 'countries') initCountries();
+    if (afterMount && afterMount.id === id) {{ const f = afterMount.fn; afterMount = null; f(); }}
+  }});
+}}
+let afterMount = null;  // something to do once a tab's view is mounted (see goThen)
+function goThen(id, fn) {{
+  if (curTab === id && vbody.childElementCount) {{ fn(); return; }}
+  afterMount = {{ id, fn }}; go(id);
+}}
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+
+// ── pop-up windows: data, rebalance, test a position, drill-down lists ──
+const modal = document.getElementById('modal'), mbody = document.getElementById('mbody');
+function openModal(id, title, small) {{
+  hideInsp(); endGlobeHover();
+  mbody.replaceChildren(document.getElementById('t-' + id).content.cloneNode(true));
+  document.getElementById('mtitle').textContent = title;
+  modal.querySelector('.mbox').classList.toggle('sm', !!small);
+  modal.hidden = false;
+  world.pauseAnimation();
+  requestAnimationFrame(() => {{
+    if (id === 'data') {{ initFix(); initTabs(); }}
+    if (id === 'rebalance') initRebalance();
     if (id === 'test') initTest();
   }});
 }}
 function closeModal() {{
   hideInsp();
-  live.forEach(c => c.dispose()); live = [];
-  for (const k in CHS) delete CHS[k];
   modal.hidden = true; mbody.replaceChildren();
-  world.resumeAnimation();
+  if (curTab === 'overview') world.resumeAnimation();
 }}
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click',
   () => openModal(b.dataset.open, b.dataset.title, b.dataset.small)));
 
 // ── drill-down: every position in one country / sector / region, for the portfolio or one account ──
-let back = null;  // the window to return to: {{ id, title, acc }}
+// It pops up over the tab it was opened from; "Back" closes it.
 function openList(k, key, acct, from) {{
   hideInsp();
-  live.forEach(c => c.dispose()); live = [];
-  for (const x in CHS) delete CHS[x];
-  back = from || null;
+  const back = !!from;
   const rows = PD[k].filter(r => !acct || r[2] === acct);
   const whole = {{}};  // each position's value over all keys (in that account when filtered)
   rows.forEach(r => {{ whole[r[0]] = (whole[r[0]] || 0) + r[4]; }});
@@ -2287,10 +2511,7 @@ function openList(k, key, acct, from) {{
   modal.hidden = false;
   world.pauseAnimation();
   const b = document.getElementById('lback');
-  if (b) b.onclick = () => {{
-    if (back.acc != null) accPick = back.acc;
-    openModal(back.id, back.title);
-  }};
+  if (b) b.onclick = closeModal;
 }}
 
 // ── countries window: search, and the positions inspector on hover (as on the cards) ──
@@ -2323,7 +2544,7 @@ function initCountries() {{
       showInsp(k, NLABEL_REV[p.name] || p.name, e.clientX + 14, e.clientY + 10, 'right', box);
     }});
     ch.on('mouseout', hideSoon);
-    ch.on('click', p => openList(k, NLABEL_REV[p.name] || p.name, null, {{ id: 'countries', title: 'Countries & regions' }}));
+    ch.on('click', p => openList(k, NLABEL_REV[p.name] || p.name, null, true));
     box.addEventListener('mouseleave', hideSoon);
   }});
   q.focus();
@@ -2388,8 +2609,8 @@ function initFix() {{
 // ── accounts window: account list on the left, the picked account's breakdowns on the right ──
 let accPick = 0;
 document.querySelectorAll('[data-acc]').forEach(r => r.addEventListener('click', e => {{
-  e.stopPropagation();  // the card around the rows opens the same window
-  accPick = +r.dataset.acc; openModal('accounts', 'Accounts');
+  e.stopPropagation();  // the card around the rows opens the same tab
+  accPick = +r.dataset.acc; go('accounts');
 }}));
 function accRows(list, grey = true, dim = '') {{
   const top = Math.max(...list.map(x => x[1]), 1e-9);
@@ -2414,7 +2635,7 @@ function initAccounts() {{
       + `<td class="m">${{fmt(h.v)}}</td><td class="m">${{h.p.toFixed(1)}}%</td></tr>`).join('')}}</tbody></table></div>`
       + `</div>`;
     det.querySelectorAll('[data-dk]').forEach(r => r.onclick = () =>
-      openList(r.dataset.dk, r.dataset.dv, a.name, {{ id: 'accounts', title: 'Accounts', acc: i }}));
+      openList(r.dataset.dk, r.dataset.dv, a.name, true));
   }};
   list.querySelectorAll('.acc-item').forEach(b => b.onclick = () => show(+b.dataset.i));
   show(Math.min(accPick, ACC.length - 1)); accPick = 0;
@@ -2478,11 +2699,245 @@ if (restart) restart.addEventListener('click', () => {{
     return;
   }}
   clearTimeout(armT); restart.textContent = '…';
+  try {{ sessionStorage.removeItem('pa.tab'); }} catch (e) {{}}
   send({{ action: 'restart' }});
 }});
+if (document.getElementById('tabbar')) {{  // a rerun (simulation, correction) rebuilds the frame: stay on the tab
+  let saved = null;
+  try {{ saved = sessionStorage.getItem('pa.tab'); }} catch (e) {{}}
+  if (saved && saved !== 'overview') go(saved, true);
+  moveInd(true);
+  if (document.fonts) document.fonts.ready.then(() => moveInd(true));  // tab widths change once the font loads
+}}
+
+// ── reveal: on the first display of an analysis, the loading screen (with its key figures) covers this frame; as it
+// fades away, the globe zooms in gently and the cards fade in ──
+if ({'true' if intro and not demo else 'false'}) {{
+  const pov = world.pointOfView();
+  world.pointOfView({{ ...pov, altitude: pov.altitude + 0.8 }}, 0);
+  const covered = () => {{
+    try {{
+      const b = window.parent.document.querySelector('.boot');
+      if (!b) return false;
+      const cs = window.parent.getComputedStyle(b);
+      return cs.visibility !== 'hidden' && +cs.opacity > 0.7;
+    }} catch (e) {{ return false; }}
+  }};
+  const reveal = () => {{
+    clearInterval(wait);
+    world.pointOfView(pov, 1600);
+    document.body.classList.add('back'); setTimeout(() => document.body.classList.remove('back'), 400);
+  }};
+  const wait = setInterval(() => {{ if (!covered()) reveal(); }}, 60);
+  setTimeout(() => {{ if (wait) clearInterval(wait); }}, 30000);
+}}
 document.getElementById('mclose').onclick = closeModal;
 modal.addEventListener('click', e => {{ if (e.target === modal) closeModal(); }});
 document.addEventListener('keydown', e => {{ if (e.key === 'Escape' && !modal.hidden) closeModal(); }});
+
+// ── search: one box for tabs, actions, positions, countries, regions, sectors, accounts and metrics ──
+const SW = {_js_json([[k, 100 * float(v)] for k, v in sec_w.items()])};
+const AW = {_js_json([[k, 100 * float(v)] for k, v in asset_w.items()])};
+const NISSUES = {len(issues)}, GITHUB = {_js_json(GITHUB_URL)};
+const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+const pc = p => p.toFixed(p < 10 ? 2 : 1) + '%';
+// Metric cards of the Metrics tab: [title as shown, extra words people may type]
+const METRICS = [
+  ['Geographic diversification', 'countries hhi effective concentration geographie pays'],
+  ['Sector diversification', 'sectors hhi effective concentration secteurs'],
+  ['Position concentration', 'top holdings largest line effective positions'],
+  ['Home bias', 'domestic home country biais'],
+  ['Emerging markets', 'em developed emergents'],
+  ['Currency exposure', 'fx eur usd jpy devises monnaie'],
+  ['Tilt against the world index', 'benchmark msci acwi active share overweight underweight indice'],
+  ['Funds that may overlap', 'overlap redundant duplicate doublons'],
+  ['Fund fees', 'ter costs expense ratio frais'],
+  ['P/E ratio', 'pe per valuation price earnings valorisation'],
+  ['Dividend income', 'yield dividends rendement revenus'],
+  ['Company size', 'market cap large small mid capitalisation'],
+];
+const TABK = {{ overview: 'home globe map accueil carte', countries: 'countries regions map pays geographie',
+  sectors: 'treemap industries secteurs', holdings: 'positions table lines lignes actifs', accounts: 'brokers comptes',
+  metrics: 'diversification risk analytics metriques', sim: 'simulation test impact' }};
+
+function searchIndex() {{
+  const I = [];
+  const add = (g, ic, l, d, r, kw, run, x) => I.push({{ g, ic, l, d, r, kw: norm(l + ' ' + (kw || '')), run, w: 0, ...x }});
+  tabBtns.forEach(b => add('Go to', '→', b.textContent, b.dataset.go === curTab ? 'Current tab' : 'Open this tab', '',
+    TABK[b.dataset.go], () => go(b.dataset.go)));
+  add('Actions', '⚖', 'Rebalance Assistant', 'Plan buys and sells toward target weights', '',
+    'rebalance target allocation reequilibrer arbitrage', () => openModal('rebalance', 'Rebalance Assistant'));
+  add('Actions', '＋', 'Test a position', 'Simulate adding an ISIN to the portfolio', '',
+    'add simulate isin what if ajouter tester', () => openModal('test', 'Test a position', 1));
+  add('Actions', '⚠', 'Data issues', NISSUES ? `${{NISSUES}} issue${{NISSUES > 1 ? 's' : ''}} to review or fix` : 'No issue found',
+    '', 'problems errors fix correct missing manual correction erreurs', () => openData('iss'));
+  add('Actions', '⛁', 'Data sources', 'Where each piece of data comes from', '', 'lineage provenance origine', () => openData('src'));
+  add('Actions', '▸', 'Scan log', 'Every lookup made during the scan', '', 'log terminal journal', () => openData('scan'));
+  add('Actions', '⤓', 'Export CSV', 'Download every position with its data', '', 'download excel export telecharger', exportCsv);
+  add('Actions', '⌥', 'GitHub', 'Source code of the app', '↗', 'source code repository repo', () => window.open(GITHUB, '_blank', 'noopener'));
+  add('Actions', '✦', 'About the author', 'Gabin Lê on LinkedIn', '↗', 'linkedin contact auteur',
+    () => window.open('https://www.linkedin.com/in/gabin-le/', '_blank', 'noopener'));
+  add('Actions', '⟲', 'Restart', 'Back to the upload page', '', 'reset new portfolio upload recommencer',
+    () => {{ try {{ sessionStorage.removeItem('pa.tab'); }} catch (e) {{}} send({{ action: 'restart' }}); }},
+    {{ danger: true, confirm: true }});
+  P.forEach(p => add('Positions', '≡', p.n,
+    [p.i, p.t, p.c === p.s ? p.c : p.c + ' · ' + p.s].filter(Boolean).join(' · '), pc(p.p),
+    [p.i, p.t, p.c, p.s, p.a].join(' '), () => goThen('holdings', () => filterTable(p.i)), {{ w: p.p }}));
+  CW.forEach(([k, p]) => add('Countries', '◉', NLABEL[k] || k, 'Positions exposed to this country', pc(p),
+    'country pays', () => openList('c', k, null, false), {{ w: p }}));
+  RW.forEach(([k, p]) => add('Regions', '◐', NLABEL[k] || k, 'Positions exposed to this region', pc(p),
+    'region', () => openList('r', k, null, false), {{ w: p }}));
+  SW.forEach(([k, p]) => add('Sectors', '▦', NLABEL[k] || k, 'Positions exposed to this sector', pc(p),
+    'sector secteur', () => openList('s', k, null, false), {{ w: p }}));
+  ACC.forEach((a, i) => add('Accounts', '▤', a.name, `${{fmt(a.v)}} · ${{a.n}} position${{a.n > 1 ? 's' : ''}}`, pc(a.p),
+    'account compte broker', () => {{ accPick = i; if (curTab === 'accounts' && vbody.childElementCount) initAccounts(); else go('accounts'); }},
+    {{ w: a.p }}));
+  AW.forEach(([k, p]) => add('Asset classes', '◧', NLABEL[k] || k, 'Show these positions in Holdings', pc(p),
+    'asset class classe', () => goThen('holdings', () => filterTable(k)), {{ w: p }}));
+  METRICS.forEach(([t, kw]) => add('Metrics', '∑', t, 'Jump to it in the Metrics tab', '', kw,
+    () => goThen('metrics', () => flashMetric(t))));
+  return I;
+}}
+function openData(tab) {{
+  openModal('data', 'Data issues & log');
+  requestAnimationFrame(() => {{ const t = mbody.querySelector(`.tab[data-tab="${{tab}}"]`); if (t) t.click(); }});
+}}
+function filterTable(v) {{
+  const q = document.getElementById('q');
+  if (q) {{ q.value = v; renderTable(); }}
+}}
+function flashMetric(t) {{
+  const n = norm(t).slice(0, 12);
+  const card = [...vbody.querySelectorAll('.mt-card')].find(c => {{
+    const k = c.querySelector('.mt-k span');
+    return k && norm(k.textContent).startsWith(n);
+  }});
+  if (!card) return;
+  card.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+  card.classList.remove('flash'); card.offsetWidth; card.classList.add('flash');
+}}
+// Best first: exact name, name start, word start, inside the name, then a keyword (ISIN, ticker, sector…).
+function score(it, q, words) {{
+  const l = norm(it.l);
+  if (l === q) return 100;
+  if (l.startsWith(q)) return 80;
+  if (l.split(/[\\s·\\-()/,.]+/).some(w => w.startsWith(q))) return 60;
+  if (l.includes(q)) return 40;
+  if (it.kw.includes(q)) return 25;
+  return words.length > 1 && words.every(w => it.kw.includes(w)) ? 15 : 0;
+}}
+// On equal scores a whole group (a sector, a country…) ranks above a single position whose name merely contains it.
+const GROUPS = ['Go to', 'Actions', 'Countries', 'Sectors', 'Regions', 'Accounts', 'Asset classes', 'Metrics', 'Positions'];
+const srch = document.getElementById('srch'), sin = document.getElementById('srch-in'), sres = document.getElementById('srch-res');
+let sItems = [], sHits = [], sOn = 0;
+function hl(text, q) {{
+  const i = q ? norm(text).indexOf(q) : -1;
+  if (i < 0) return esc(text);
+  return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + q.length)) + '</mark>' + esc(text.slice(i + q.length));
+}}
+function searchRender() {{
+  const q = norm(sin.value.trim()), words = q.split(/\\s+/).filter(Boolean);
+  let groups;
+  if (!q) {{  // nothing typed yet: the tabs, the main actions and the largest positions
+    const pick = (g, n) => sItems.filter(it => it.g === g).slice(0, n);
+    groups = [['Go to', pick('Go to', 9)], ['Actions', pick('Actions', 4)],
+              ['Top positions', sItems.filter(it => it.g === 'Positions').sort((a, b) => b.w - a.w).slice(0, 4)]];
+  }} else {{
+    const by = {{}};
+    sItems.forEach(it => {{
+      const s = score(it, q, words);
+      if (s) (by[it.g] = by[it.g] || []).push([s, it]);
+    }});
+    groups = GROUPS.filter(g => by[g])
+      .map(g => [g, by[g].sort((a, b) => b[0] - a[0] || b[1].w - a[1].w), Math.max(...by[g].map(x => x[0]))])
+      .sort((a, b) => b[2] - a[2] || GROUPS.indexOf(a[0]) - GROUPS.indexOf(b[0]))
+      .map(([g, list]) => [g, list.slice(0, g === 'Positions' ? 6 : 5).map(x => x[1])]);
+  }}
+  sHits = [];
+  let html = '';
+  groups.forEach(([g, list]) => {{
+    if (!list.length) return;
+    html += `<div class="sg">${{g}}</div>`;
+    list.forEach(it => {{
+      const i = sHits.push(it) - 1;
+      html += `<div class="si${{it.danger ? ' danger' : ''}}${{it.armed ? ' armed' : ''}}" data-i="${{i}}">`
+        + `<span class="ic">${{it.ic}}</span><div class="tx"><div class="l">${{hl(it.l, q)}}</div>`
+        + `<div class="d">${{esc(it.armed ? 'Press Enter again to confirm' : it.d)}}</div></div>`
+        + (it.r ? `<span class="r">${{esc(it.r)}}</span>` : '') + '<span class="k">↵</span></div>';
+    }});
+  }});
+  if (!sHits.length) html = `<div class="sempty">Nothing matches “${{esc(sin.value.trim())}}”.<br>`
+    + 'Try a name, an ISIN, a ticker, a country, a sector or an action.</div>';
+  html += '<div class="sfoot"><span><kbd>↑</kbd><kbd>↓</kbd>move</span><span><kbd>↵</kbd>open</span>'
+    + '<span><kbd>esc</kbd>close</span><span style="margin-left:auto"><kbd>/</kbd>search anywhere</span></div>';
+  sres.innerHTML = html;
+  sOn = Math.min(sOn, Math.max(0, sHits.length - 1));
+  searchMark(false);
+}}
+function searchMark(scroll) {{
+  sres.querySelectorAll('.si').forEach(n => n.classList.toggle('on', +n.dataset.i === sOn));
+  const on = sres.querySelector('.si.on');
+  if (scroll && on) on.scrollIntoView({{ block: 'nearest' }});
+}}
+function searchPlace() {{
+  const r = srch.getBoundingClientRect(), w = sres.offsetWidth || 460;
+  sres.style.top = (r.bottom + 8) + 'px';
+  sres.style.left = Math.max(12, Math.min(r.right - w, innerWidth - w - 12)) + 'px';
+}}
+function searchOpen() {{
+  if (srch.classList.contains('open')) {{ sin.focus(); sin.select(); return; }}
+  hideInsp(); endGlobeHover();
+  sItems = searchIndex(); sOn = 0;
+  srch.classList.add('open'); sin.focus();
+  sres.hidden = false; searchRender();
+  requestAnimationFrame(searchPlace);
+  setTimeout(searchPlace, 340);  // once the box has finished widening
+}}
+function searchClose() {{
+  srch.classList.remove('open'); sres.hidden = true;
+  sin.value = ''; sin.blur();
+}}
+function searchRun(i) {{
+  const it = sHits[i];
+  if (!it) return;
+  if (it.confirm && !it.armed) {{ it.armed = true; sOn = i; searchRender(); return; }}
+  searchClose();
+  if (!modal.hidden) closeModal();
+  it.run();
+}}
+if (srch) {{
+  document.getElementById('srch-btn').addEventListener('click', () =>
+    srch.classList.contains('open') && !sin.value ? searchClose() : searchOpen());
+  document.getElementById('srch-esc').addEventListener('click', searchClose);
+  sin.addEventListener('focus', () => {{ if (!srch.classList.contains('open')) searchOpen(); }});
+  sin.addEventListener('input', () => {{ sItems.forEach(it => it.armed = false); sOn = 0; searchRender(); sres.scrollTop = 0; }});
+  sin.addEventListener('keydown', e => {{
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {{
+      e.preventDefault();
+      if (sHits.length) {{ sOn = (sOn + (e.key === 'ArrowDown' ? 1 : -1) + sHits.length) % sHits.length; searchMark(true); }}
+    }} else if (e.key === 'Enter') {{ e.preventDefault(); searchRun(sOn); }}
+    else if (e.key === 'Escape') {{
+      e.stopPropagation();
+      if (sin.value) {{ sin.value = ''; sOn = 0; searchRender(); }} else searchClose();
+    }}
+  }});
+  sres.addEventListener('mousedown', e => e.preventDefault());  // keep the focus in the box
+  sres.addEventListener('mousemove', e => {{
+    const n = e.target.closest('.si');
+    if (n && +n.dataset.i !== sOn) {{ sOn = +n.dataset.i; searchMark(false); }}
+  }});
+  sres.addEventListener('click', e => {{ const n = e.target.closest('.si'); if (n) searchRun(+n.dataset.i); }});
+  document.addEventListener('mousedown', e => {{
+    if (srch.classList.contains('open') && !srch.contains(e.target) && !sres.contains(e.target)) searchClose();
+  }});
+  document.addEventListener('keydown', e => {{
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if ((e.key === '/' && !typing) || (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey))) {{
+      e.preventDefault(); searchOpen();
+    }}
+  }});
+  addEventListener('resize', () => {{ if (!sres.hidden) searchPlace(); }});
+}}
 
 // Holdings table: sortable, filterable, exportable.
 const COLS = [['n', 'Name'], ['i', 'ISIN'], ['t', 'Ticker'], ['c', 'Country'], ['s', 'Sector'],
@@ -2490,19 +2945,20 @@ const COLS = [['n', 'Name'], ['i', 'ISIN'], ['t', 'Ticker'], ['c', 'Country'], [
 let sortK = 'v', sortDir = -1;
 function initTable() {{
   document.getElementById('q').addEventListener('input', renderTable);
-  document.getElementById('csv').addEventListener('click', () => {{
-    const q = s => `"${{String(s).replace(/"/g, '""')}}"`;
-    const lines = [COLS.map(c => q(c[1])).join(',')].concat(P.map(p => COLS.map(([k]) => q(p[k])).join(',')));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([lines.join('\\n')], {{ type: 'text/csv' }}));
-    a.download = 'portfolio_enriched.csv'; a.click();
-  }});
+  document.getElementById('csv').addEventListener('click', exportCsv);
   renderTable();
+}}
+function exportCsv() {{
+  const q = s => `"${{String(s).replace(/"/g, '""')}}"`;
+  const lines = [COLS.map(c => q(c[1])).join(',')].concat(P.map(p => COLS.map(([k]) => q(p[k])).join(',')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\\n')], {{ type: 'text/csv' }}));
+  a.download = 'portfolio_enriched.csv'; a.click();
 }}
 function renderTable() {{
   const q = document.getElementById('q').value.toLowerCase();
   const maxP = Math.max(...P.map(p => p.p));
-  const rows = P.filter(p => !q || [p.n, p.i, p.t, p.c, p.s].join(' ').toLowerCase().includes(q))
+  const rows = P.filter(p => !q || [p.n, p.i, p.t, p.c, p.s, p.a].join(' ').toLowerCase().includes(q))
     .sort((a, b) => (a[sortK] > b[sortK] ? 1 : a[sortK] < b[sortK] ? -1 : 0) * sortDir);
   document.getElementById('hh').innerHTML = '<tr>' + COLS.map(([k, l]) =>
     `<th data-k="${{k}}" class="${{k === sortK ? 'on' : ''}}">${{l}}${{k === sortK ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}}</th>`).join('') + '</tr>';
@@ -2546,9 +3002,11 @@ placeDemoGlobe();
 new ResizeObserver(() => {{
   world.width(el.clientWidth).height(el.clientHeight);
   placeDemoGlobe();
+  moveInd(true);
   live.forEach(c => c.resize());
 }}).observe(document.body);
 </script></body></html>""", height=900)
+    return figures
 
 
 # ── ECharts specs (rendered inside the cockpit's detail windows) ─────────────
@@ -3106,8 +3564,11 @@ if ps:
 # Shown for the first display of these results. Looking up their valuation data on Yahoo (about 8 at a time) can take
 # longer than the usual 2 seconds, so the screen stays up for that long.
 _lookups = fund_data_needed(wanted)
-results_boot = show_boot(not st.session_state.get("results_seen"),
-                         BOOT_SECONDS if not _lookups else min(20.0, BOOT_SECONDS + 1.5 + 1.3 * -(-_lookups // 8)))
+first_display = not st.session_state.get("results_seen")
+# On the first display, the loading screen then shows the key figures under its logo before fading away.
+results_boot = show_boot(first_display,
+                         BOOT_SECONDS if not _lookups else min(20.0, BOOT_SECONDS + 1.5 + 1.3 * -(-_lookups // 8)),
+                         figures=first_display)
 base_pos = portfolio.assign(origin="Portfolio")
 sim_pos = pd.DataFrame(st.session_state.sims or [], columns=["isin", "value"]).assign(origin="Simulated",
                                                                                       account="Simulation")
@@ -3152,8 +3613,11 @@ if st.session_state.flash:
 with st.container(key="bridge_box"):  # off-screen input the cockpit frame writes messages into
     st.text_input("bridge", key="bridge", on_change=on_bridge, label_visibility="collapsed")
 try:
-    cockpit(df, sim, notes, excluded=excl)
+    figures = cockpit(df, sim, notes, excluded=excl, intro=first_display)
+    if figures:
+        results_boot = show_figures(results_boot, figures)
 except Exception as e:  # noqa: BLE001 — e.g. no internet for the first shape download
+    results_boot[0].empty()
     hero()
     st.error(f"Globe unavailable: {e}")
 hide_boot(results_boot)

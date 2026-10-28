@@ -236,7 +236,7 @@ function initRebalance() {
     $('rb-targets').innerHTML = S.targets.map((t, i) => `<div class="rb-trow" data-i="${i}">
       <select class="rb-d">${Object.entries(DIM).map(([k, l]) => `<option value="${k}"${k === t.d ? ' selected' : ''}>${l}</option>`).join('')}</select>
       <select class="rb-k">${catsOf(t.d).map(c => `<option value="${esc(c)}"${c === t.k ? ' selected' : ''}>${esc(c)} · ${pct(cur(t.d, c))}</option>`).join('')}</select>
-      <input class="rb-t" type="number" min="0" max="100" step="0.5" value="${t.t}"><span>%</span>
+      <input class="rb-t" type="number" min="0" max="100" step="any" value="${t.t}"><span>%</span>
       <button class="rb-x" title="Remove">✕</button></div>`).join('') ||
       '<div class="rb-hint">No target yet. Add one, or start from your current allocation.</div>';
   }
@@ -399,7 +399,7 @@ function initRebalance() {
   });
   const fill = d => {
     S.targets = S.targets.filter(t => t.d !== d);
-    catsOf(d).slice(0, 5).forEach(c => { const w = Math.round(1000 * cur(d, c)) / 10; if (w >= 0.5) S.targets.push({d, k: c, t: Math.round(w)}); });
+    catsOf(d).slice(0, 5).forEach(c => { const w = Math.round(1000 * cur(d, c)) / 10; if (w >= 0.5) S.targets.push({d, k: c, t: w}); });
     drawTargets(); render();
   };
   root.addEventListener('click', e => {
