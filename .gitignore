@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.streamlit/secrets.toml
+.DS_Store
+Thumbs.db
+# Data refresh script 
+scripts/update_data.py
+scripts/.etf_cache/
+scripts/_test/
