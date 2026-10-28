@@ -2660,10 +2660,10 @@ def landing():
             '<div class="leyebrow">Portfolio intelligence</div>'
             '<h1 class="lh1">See where your<br><span>money lives.</span></h1>'
             '<p class="lsub">Drop your <b>broker or insurer exports</b> (CSV or Excel, several at once). Stocks, '
-            'ETFs, SCPI and euro funds are mapped by <b>country, sector and asset class</b> on a live 3D globe. ETF COMPATIBILITY IS LIMITED ON THE WEB DEPLOYMENT DUE TO API RESTRICTION. FOR BETTER ETF COMPATIBILITY, PLEASE USE RUN THE APP LOCALLY. </p>',
+            'ETFs, SCPI and euro funds are mapped by <b>country, sector and asset class</b> on a live 3D globe.</p>',
             unsafe_allow_html=True,
         )
-        files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt"], accept_multiple_files=True,
+        files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt", " ETF COMPATIBILITY IS LIMITED ON THE WEB DEPLOYMENT DUE TO API RESTRICTION. FOR BETTER ETF COMPATIBILITY, PLEASE USE RUN THE APP LOCALLY."], accept_multiple_files=True,
                                  label_visibility="collapsed", key="up_main")
         start = bool(files) and st.button(f"▶ Analyse {len(files)} file{'s' if len(files) > 1 else ''}",
                                           type="primary", key="start")
