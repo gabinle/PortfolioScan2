@@ -1,4 +1,4 @@
-# PortfolioScan
+# PortfolioScan - BETA VERSION
 
 See where your money lives. Upload the exports of your brokers and insurers (CSV or Excel, several at once):
 every stock, ETF, bond fund, SCPI, euro fund and cash line is mapped by **country, sector, asset class and account**
