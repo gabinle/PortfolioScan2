@@ -405,8 +405,18 @@ ETF_FUNDS = DATA_DIR / "etf_funds.csv.gz"        # one row per ETF, built offlin
 ETF_EXPOSURE = DATA_DIR / "etf_exposure.csv.gz"  # each ETF's 10 largest countries and sectors, the rest as "Other"
 
 
-@st.cache_resource(show_spinner=False)
+def file_stamp(*paths: Path) -> tuple:
+    """Modification times of data files. Passed to the cached loaders below so that replacing a file (a new data
+    commit on Streamlit Cloud does not restart the server) is read again instead of served from memory."""
+    return tuple(p.stat().st_mtime if p.exists() else None for p in paths)
+
+
 def load_etf_snapshot() -> dict:
+    return _etf_snapshot(file_stamp(ETF_FUNDS, ETF_EXPOSURE))
+
+
+@st.cache_resource(show_spinner=False)
+def _etf_snapshot(stamp) -> dict:  # noqa: ARG001 — stamp only keys the cache
     """ISIN -> fund fields plus {"country": {label: weight}, "sector": {...}}. Empty if the files are missing."""
     if not (ETF_FUNDS.exists() and ETF_EXPOSURE.exists()):
         return {}
@@ -435,8 +445,12 @@ def server_figi_key() -> str | None:
     return key or None
 
 
-@st.cache_resource(show_spinner=False)
 def load_financedatabase():
+    return _financedatabase(file_stamp(FD_SNAPSHOT))
+
+
+@st.cache_resource(show_spinner=False)
+def _financedatabase(stamp):  # noqa: ARG001 — stamp only keys the cache
     """ISIN -> listing details and company name -> sector, from the embedded FinanceDatabase snapshot."""
     df = pd.read_csv(FD_SNAPSHOT, dtype=str)
     by_isin = df[df["isin"].notna()].set_index("isin")[["symbol", "name", "country", "sector"]].to_dict("index")
@@ -484,8 +498,12 @@ COUNTRY_WORDS = [
 ]
 
 
-@st.cache_resource(show_spinner=False)
 def load_fd_etf_tickers() -> dict:
+    return _fd_etf_tickers(file_stamp(FD_ETF_TICKERS))
+
+
+@st.cache_resource(show_spinner=False)
+def _fd_etf_tickers(stamp) -> dict:  # noqa: ARG001 — stamp only keys the cache
     """ISIN -> Yahoo tickers, main venues first (they carry Yahoo's fund data most often)."""
     if not FD_ETF_TICKERS.exists():
         return {}
@@ -863,6 +881,11 @@ def run_scan(isins: list[str], figi_key: str | None, file_name: str = ""):
     loader.markdown(render_loader(isins, 0, "initialising sources…", started), unsafe_allow_html=True)
     pipe.markdown(render_pipeline(None, hits), unsafe_allow_html=True)
     log("SYS", f"scan started · {len(isins)} asset(s) · cascade FD → YF → FIGI", "head")
+    etfs = load_etf_snapshot()
+    log("SYS", f"ETF data: {len(etfs):,} ETFs loaded" if etfs else
+        "ETF data files missing (data/etf_*.csv.gz): ETFs will be estimated from Yahoo", "ok" if etfs else "err")
+    if not load_fd_etf_tickers():
+        log("SYS", "data/fd_etf_tickers.csv.gz missing: Yahoo estimates only try one listing per ETF", "warn")
 
     fd_maps = None
     log("SYS", "loading FinanceDatabase equity universe (embedded snapshot)…", "info")
@@ -1044,7 +1067,9 @@ def data_issues(df: pd.DataFrame, excluded: pd.DataFrame, off_map: list[str]) ->
                     "looked": looked})
 
     corrected = set(df.loc[df["manual"] != "", "isin"])
-    for x in excluded.itertuples():
+    # One line per excluded fund, even when several accounts hold it.
+    once = excluded.groupby("isin", as_index=False, sort=False).agg(name=("name", "first"), value=("value", "sum"))
+    for x in once.itertuples():
         note = res.get(x.isin, {}).get("note") or "classed as an ETF or fund"
         add(x.name, x.isin, "ETF / fund without data: excluded", x.value, f"{ETF_SOURCES}: not found · {note}")
     for isin, rows in df.groupby("isin", sort=False):
@@ -1098,7 +1123,7 @@ def data_lineage(df: pd.DataFrame, excluded: pd.DataFrame) -> list[dict]:
     res, etfs, overrides = st.session_state.results, load_etf_snapshot(), st.session_state.overrides
     out = []
     frames = [(isin, rows.iloc[0], rows) for isin, rows in df.groupby("isin", sort=False)]
-    frames += [(x.isin, pd.Series(x._asdict()), None) for x in excluded.itertuples()]
+    frames += [(x.isin, pd.Series(x._asdict()), None) for x in excluded.drop_duplicates("isin").itertuples()]
     for isin, r0, rows in frames:
         rec, kind = res.get(isin, {}), special_kind(isin)
         etf = etfs.get(isin) or rec.get("etf")
@@ -2660,10 +2685,10 @@ def landing():
             '<div class="leyebrow">Portfolio intelligence</div>'
             '<h1 class="lh1">See where your<br><span>money lives.</span></h1>'
             '<p class="lsub">Drop your <b>broker or insurer exports</b> (CSV or Excel, several at once). Stocks, '
-            'ETFs, SCPI and euro funds are mapped by <b>country, sector and asset class</b> on a live 3D globe. [IMPORTANT]: This app is designed to run locally. The web preview cannot scan all positions (especially etfs) due to API restrictions. </p>',
+            'ETFs, SCPI and euro funds are mapped by <b>country, sector and asset class</b> on a live 3D globe.</p>',
             unsafe_allow_html=True,
         )
-        files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt",], accept_multiple_files=True,
+        files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt"], accept_multiple_files=True,
                                  label_visibility="collapsed", key="up_main")
         start = bool(files) and st.button(f"▶ Analyse {len(files)} file{'s' if len(files) > 1 else ''}",
                                           type="primary", key="start")
@@ -2938,6 +2963,9 @@ if current.empty:
 
 df, excl = with_sim, excluded_sim
 notes = []
+if not etf_data:  # the deployed copy lacks data/etf_*.csv.gz: say so instead of silently degrading
+    notes.append("ETF data files missing on this server (data/etf_funds.csv.gz, data/etf_exposure.csv.gz): "
+                 "ETFs fall back to Yahoo estimates")
 if len(excl):
     share = excl["value"].sum() / (df["value"].sum() + excl["value"].sum())
     notes.append(f"{excl['isin'].nunique()} ETF/fund(s) excluded ({share:.1%} of total value) · not in our ETF data yet")
