@@ -6,12 +6,15 @@
 
 **See where your money really lives.**
 
+Made by **Gabin Lê** · [![LinkedIn](https://img.shields.io/badge/LinkedIn-Gabin%20L%C3%AA-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/gabin-le/)
+
 Upload the exports of your brokers and insurers. Every stock, ETF, bond fund, SCPI, euro fund and cash line is
 mapped by **country, sector, asset class and account** on an interactive 3D globe, with a clear record of where each
 piece of data comes from.
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.59-FF4B4B?logo=streamlit&logoColor=white)
+![Runs in the browser](https://img.shields.io/badge/analysis-in%20your%20session-3987e5)
 
 [Quick start](#quick-start) · [Features](#features) · [How it works](#how-each-position-is-analysed) ·
 [Run locally](#run-locally) · [Privacy](#privacy)
@@ -68,6 +71,10 @@ piece of data comes from.
    key figures (total value, number of positions and analysis precision) before opening the dashboard.
 
 No file at hand? Click **▶ Explore a demo portfolio**.
+
+**OpenFIGI API key (optional).** For files with many stocks the embedded data does not know, paste your free
+[OpenFIGI key](https://www.openfigi.com/api) under **🔑 OpenFIGI API key** on the landing page to lift its rate limit.
+It is kept for your session only and never stored; it takes priority over a key set on the server.
 
 ---
 
@@ -137,6 +144,17 @@ Name, country and sector are looked up in a cascade, each source filling only wh
 
 ADRs (e.g. ARM, Infosys) get the company's country, not the United States.
 
+### OpenFIGI, for every position
+
+At the start of the scan, every position the embedded data does not cover is sent to **OpenFIGI** in one go (100
+ISINs per request with an API key, 10 without). OpenFIGI identifies each one: its name, its type (stock, ETP, fund…)
+and its listings on every exchange. It has no country or sector data, but it is used at each step:
+
+- a position OpenFIGI identifies as a fund goes straight to the fund analysis below;
+- every ticker OpenFIGI lists is searched on Yahoo Finance, so a fund (or a stock) Yahoo does not find by its ISIN,
+  or whose usual listing has no fund data, gets more listings to try;
+- its name and type are kept as a last resort, and recorded in **Data sources**.
+
 ### ETFs from the snapshot (2,600+ funds)
 
 iShares, SPDR, Amundi and Xtrackers ETFs come with their real country and sector breakdown, computed from the
@@ -149,30 +167,55 @@ countries and 10 largest sectors**; the rest is grouped as **Other**, and holdin
 - Sector names are normalised to the 11 GICS sectors.
 - An ETF is spread over its countries and sectors: totals per country and per sector are exact, how they pair up
   inside the fund is approximated.
+- When an issuer leaves 5% or more of a fund unclassified, that part is spread like the closest ETF of the snapshot
+  that classifies everything (e.g. the share of Amundi MSCI India its issuer left without a sector follows iShares
+  MSCI India).
 
 ### Other ETFs: Yahoo Finance estimate
 
-An ETF missing from the snapshot is looked up on Yahoo Finance, trying each of its listings until one has fund data.
+An ETF missing from the snapshot (Vanguard, WisdomTree, L&G, VanEck…) is looked up on Yahoo Finance, trying each of
+its listings until one has fund data.
 
-- **Sectors**: the fund's own sector weights, complete.
-- **Countries**: Yahoo has no country breakdown. A fund named after a single country ("MSCI Japan", "Switzerland")
-  is that country at 100%. Otherwise the countries of its top 10 holdings are used and the rest of the fund is
-  Unknown.
+- **Sectors**: the fund's own sector weights, complete. A bond fund Yahoo only describes by its asset classes gets the
+  "Bonds" sector.
+- **Countries**: Yahoo has no country breakdown, so they are estimated, best source first:
+  1. a fund whose name names one country (from the country database) **and whose largest holdings confirm it** is that
+     country at 100%, so "MSCI World ex Japan" is not taken for Japan;
+  2. the countries of an ETF of the snapshot that tracks **the same index**, recognised from the names: once the brand
+     and the wrapper are removed, "Vanguard FTSE All-World UCITS ETF USD Acc" and "iShares FTSE All World UCITS ETF"
+     both name *ftse all world*;
+  3. otherwise the countries of **the closest fund of the snapshot**:
+     - for a fund with sector data, an equity ETF whose index name shares a word with the fund's, whose countries hold
+       the fund's largest holdings, and whose sector mix is nearest. Each word a candidate's index adds ("value",
+       "factor"…) counts against it, weighted by how rare the word is, so plain-index ETFs win (FTSE Developed World →
+       an MSCI World ETF);
+     - for a fund without (a bond fund), the fund of the same asset class whose index name is nearest, words weighted
+       the same way (Vanguard USD Treasury Bond → iShares $ Treasury Bond);
+  4. failing all that (thematic funds: cloud, robotics, defence…), the countries of its largest holdings, scaled to
+     the whole fund. Each holding's country comes from FinanceDatabase, else from Yahoo Finance.
 
-An ETF with no fund data anywhere is excluded and listed under **Data issues**.
+  No list of indices, equivalences or translations is written in the code: every match comes from the data.
 
-### Bonds, SCPI, euro funds and cash
+A fund with no data anywhere is excluded and listed under **Data issues**, unless a fund of the snapshot tracks the
+same index or has a near-identical name, in which case it takes that fund's whole breakdown. Every estimate is
+labelled in **Data sources**.
+
+### Bonds, SCPI, commodities, euro funds and cash
 
 | Type | Country | Sector | Asset class |
 |------|---------|--------|-------------|
 | Bond ETF | The issuers' countries | "Bonds" (GICS sectors describe companies) | Bonds |
 | SCPI | France (a SCPI is a French vehicle) | Real Estate | Real estate (SCPI) |
+| Physical commodity (gold, silver… ETC) | None by nature | None by nature | Commodities |
 | Euro fund, cash | None by nature | None by nature | Euro funds & cash |
+
+Commodity ETCs are recognised from their name ("Physical Gold ETC", "Xetra-Gold"…); funds of mining companies
+("Gold Miners", "Gold Producers") stay equity funds.
 
 ### Grey lines
 
-**Unknown**, **Other (outside top 10)**, **Bonds**, **Euro funds & cash** and an ETF's own **Cash & Derivatives**
-are not real countries or sectors. They are shown in grey at the bottom of every list, never on the globe, and are not
+**Unknown**, **Other (outside top 10)**, **Bonds**, **Commodities**, **Euro funds & cash** and an ETF's own
+**Cash & Derivatives** are not real countries or sectors. They are shown in grey at the bottom of every list, never on the globe, and are not
 counted in the number of countries and sectors.
 
 ### Analysis precision
@@ -207,7 +250,8 @@ or a test position, for instance).
 - **Top countries** and **Top sectors**: hover a row for its positions; click a country to fly the globe there; click a
   title to open the matching tab.
 - **Simulation** card (with test positions only): edit or remove each one and see the largest shifts.
-- **Details**: **Data** (issues, scan log and data sources), **⟲ Restart** (back to the upload page) and **GitHub**.
+- **Details**: **Data** (issues, scan log and data sources), **⤓ Export** (see below), **⟲ Restart** (back to the
+  upload page) and **GitHub**.
 - **On the globe**: drag to spin, scroll to zoom, hover a country to list its positions, click to fly to it.
 
 ### Search
@@ -225,6 +269,18 @@ The **magnifier** to the right of the tabs opens a search box. Press **/** or **
 
 Results are ranked by relevance with the matching letters highlighted. Accents are ignored and common French terms
 work too ("frais", "pays", "rééquilibrer"…). Use **↑ ↓** to move, **↵** to open and **Esc** to close.
+
+### Export
+
+**⤓ Export** downloads a summary of the analysis. Pick the format and the sections to include (key figures,
+asset classes, countries and regions, sectors, accounts, concentration, every position, data quality):
+
+- **PDF report**: a designed A4 report, with a title band, key-figure tiles, an asset-class donut, bars for countries,
+  regions and sectors, and tables for accounts and positions. It is drawn as vectors, so it stays sharp in print;
+- **Excel workbook**: one sheet per section;
+- **CSV**: the same tables one after another.
+
+Files are built in your browser: nothing is sent anywhere. Your choices are remembered for the next export.
 
 ### Data sources
 
@@ -334,8 +390,11 @@ values, names and accounts never leave the app. Rebalance targets and trading fe
 
 ## Limitations
 
-- ETFs outside iShares, SPDR, Amundi and Xtrackers are Yahoo estimates; multi-country ones only have the countries of
-  their top 10 holdings.
+- ETFs outside iShares, SPDR, Amundi and Xtrackers are Yahoo estimates. Their countries are borrowed from the ETF of
+  the snapshot on the same index, or from the closest one; when nothing is close enough, only their top 10 holdings
+  have a country.
+- Mutual funds without public data (e.g. many actively managed funds) cannot be broken down automatically: enter
+  their allocation once with **✎ Fix**.
 - Each ETF keeps its 10 largest countries and sectors; the rest is "Other".
 - An ETF's country × sector pairing is approximated (the totals per country and per sector are exact).
 - Manual corrections and test positions last for the session only.
@@ -359,7 +418,8 @@ On Windows you can also double-click `run.bat`.
 1. Push this folder to a GitHub repository.
 2. At [share.streamlit.io](https://share.streamlit.io), click **Create app**, then pick the repository and `app.py`.
 3. Under **Advanced settings**, choose Python 3.12. To lift OpenFIGI's rate limit, add a secret:
-   `OPENFIGI_API_KEY = "your-key"` (free key at [openfigi.com](https://www.openfigi.com/api)).
+   `OPENFIGI_API_KEY = "your-key"` (free key at [openfigi.com](https://www.openfigi.com/api)). It is used for every
+   visitor who does not enter their own key on the landing page.
 
 ## Project layout
 
@@ -369,9 +429,10 @@ On Windows you can also double-click `run.bat`.
 | `importer.py` | Reads broker exports and detects their columns, accounts and special lines |
 | `rebalance.py` | The Rebalance Assistant: exposure data, window and calculation |
 | `metrics.py` | The Metrics tab: Yahoo valuation data, fees, world-index benchmark and the figures |
+| `report_export.py` | The Export window: PDF report, Excel workbook and CSV, built in the browser |
 | `run.bat` | Starts the app on Windows |
 | `.streamlit/config.toml` | Theme and the 5 MB upload limit |
-| `assets/` | Logo and the README screenshot |
+| `assets/` | Logo, the README screenshot and the landing page's step previews (`assets/steps/`) |
 | `data/fd_equities.csv.gz` | FinanceDatabase snapshot: ISIN → ticker, name, country, sector |
 | `data/fd_etf_tickers.csv.gz` | Every Yahoo ticker of each ETF, to estimate ETFs missing from the snapshot |
 | `data/etf_funds.csv.gz` | One row per ETF: name, issuer, date, asset class and how its breakdown was built |

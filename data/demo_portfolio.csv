@@ -1,10 +1,5 @@
 isin,value,name,account
 LU1681043599,22000,Amundi MSCI World UCITS ETF,Interactive Brokers · Equity account
-FR0013412020,6000,Amundi PEA Emergent ESG,Interactive Brokers · Equity account
-FR0000121014,4200,LVMH,Interactive Brokers · Equity account
-FR0000120271,3100,TotalEnergies,Interactive Brokers · Equity account
-FR0000121972,3600,Schneider Electric,Interactive Brokers · Equity account
-FR0000120073,2800,Air Liquide,Interactive Brokers · Equity account
 NL0010273215,4100,ASML,Interactive Brokers · Equity account
 DE0007164600,3300,SAP,Interactive Brokers · Equity account
 DE0007236101,2400,Siemens,Interactive Brokers · Equity account
@@ -16,17 +11,22 @@ BE0974293251,1200,AB InBev,Interactive Brokers · Equity account
 AT0000652011,900,Erste Group,Interactive Brokers · Equity account
 PTEDP0AM0009,700,EDP,Interactive Brokers · Equity account
 CASH,1500,Cash USD,Interactive Brokers · Equity account
-FONDSEURO,18000,Fonds en euros,Fidelity · Retirement account
-SCPI00004799,6000,SCPI Remake Live,Fidelity · Retirement account
+FR0013412020,6000,Amundi PEA Emergent ESG,Boursorama · PEA
+FR0000121014,4200,LVMH,Boursorama · PEA
+FR0000120271,3100,TotalEnergies,Boursorama · PEA
+FR0000121972,3600,Schneider Electric,Boursorama · PEA
+FR0000120073,2800,Air Liquide,Boursorama · PEA
+FR0010527275,4000,Amundi MSCI Water,Boursorama · PEA
 IE00BDBRDM35,8000,iShares Core Global Aggregate Bond,Fidelity · Retirement account
 IE00B3F81R35,4000,iShares Core € Corp Bond,Fidelity · Retirement account
 IE00BL25JL35,9000,Xtrackers MSCI World Quality,Fidelity · Retirement account
-FR0010527275,4000,Amundi MSCI Water,Fidelity · Retirement account
 IE00B1FZS350,3000,iShares Developed Markets Property Yield,Fidelity · Retirement account
-IE00B27YCK28,3000,iShares MSCI EM Latin America,Fidelity · Retirement account
-IE00B52MJY50,4000,iShares Core MSCI Pacific ex-Japan,Fidelity · Retirement account
-IE00BKM4GZ66,5000,iShares Core MSCI EM IMI,Fidelity · Retirement account
 IE00BF4RFH31,3500,iShares MSCI World Small Cap,Fidelity · Retirement account
+FONDSEURO,18000,Fonds en euros,Linxea · Life insurance
+SCPI00004799,6000,SCPI Remake Live,Linxea · Life insurance
+IE00B27YCK28,3000,iShares MSCI EM Latin America,Linxea · Life insurance
+IE00B52MJY50,4000,iShares Core MSCI Pacific ex-Japan,Linxea · Life insurance
+IE00BKM4GZ66,5000,iShares Core MSCI EM IMI,Linxea · Life insurance
 IE00B5BMR087,12000,iShares Core S&P 500,Charles Schwab · Brokerage account
 US0378331005,3500,Apple,Charles Schwab · Brokerage account
 US67066G1040,4000,NVIDIA,Charles Schwab · Brokerage account
@@ -34,38 +34,38 @@ US5949181045,3200,Microsoft,Charles Schwab · Brokerage account
 US46625H1005,2100,JPMorgan Chase,Charles Schwab · Brokerage account
 US4781601046,1600,Johnson & Johnson,Charles Schwab · Brokerage account
 US0231351067,2300,Amazon,Charles Schwab · Brokerage account
-JP3633400001,1500,Toyota,Charles Schwab · Brokerage account
-JP3435000009,1300,Sony,Charles Schwab · Brokerage account
-CH0038863350,1400,Nestlé,Charles Schwab · Brokerage account
-GB0005405286,1200,HSBC,Charles Schwab · Brokerage account
-SE0017486889,1000,Atlas Copco,Charles Schwab · Brokerage account
-NO0010096985,900,Equinor,Charles Schwab · Brokerage account
-IE0001827041,1100,CRH,Charles Schwab · Brokerage account
-IL0010824113,900,Check Point Software,Charles Schwab · Brokerage account
 CA7800871021,1100,Royal Bank of Canada,Charles Schwab · Brokerage account
-AU000000BHP4,900,BHP,Charles Schwab · Brokerage account
-SG1L01001701,800,DBS Group,Charles Schwab · Brokerage account
-HK0000069689,700,AIA Group,Charles Schwab · Brokerage account
-KR7005930003,900,Samsung Electronics,Charles Schwab · Brokerage account
-TW0002330008,1200,TSMC,Charles Schwab · Brokerage account
-INE002A01018,700,Reliance Industries,Charles Schwab · Brokerage account
-BRPETRACNPR6,500,Petrobras,Charles Schwab · Brokerage account
-MX01WA000038,500,Walmex,Charles Schwab · Brokerage account
-SA14TG012N13,400,Saudi Aramco,Charles Schwab · Brokerage account
-AEE000301011,400,Emaar Properties,Charles Schwab · Brokerage account
-PLPKO0000016,400,PKO Bank Polski,Charles Schwab · Brokerage account
-HU0000061726,400,OTP Bank,Charles Schwab · Brokerage account
-CZ0005112300,300,CEZ,Charles Schwab · Brokerage account
-TREBIMM00018,300,BIM,Charles Schwab · Brokerage account
-QA0006929895,300,Qatar National Bank,Charles Schwab · Brokerage account
-KW0EQ0100085,300,Kuwait Finance House,Charles Schwab · Brokerage account
-EGS60121C018,250,Commercial International Bank,Charles Schwab · Brokerage account
 US9842451000,300,YPF,Charles Schwab · Brokerage account
-PHY806761029,250,SM Investments,Charles Schwab · Brokerage account
-MA0000011488,250,Maroc Telecom,Charles Schwab · Brokerage account
-LU1598757687,400,ArcelorMittal,Charles Schwab · Brokerage account
-MYL1155OO000,250,Maybank,Charles Schwab · Brokerage account
-ID1000109507,300,Bank Central Asia,Charles Schwab · Brokerage account
-CL0000000035,200,Aguas Andinas,Charles Schwab · Brokerage account
-NZFAPE0001S2,250,Fisher & Paykel Healthcare,Charles Schwab · Brokerage account
-CASH,2500,Cash EUR,Charles Schwab · Brokerage account
+JP3633400001,1500,Toyota,Saxo · Global equities
+JP3435000009,1300,Sony,Saxo · Global equities
+CH0038863350,1400,Nestlé,Saxo · Global equities
+GB0005405286,1200,HSBC,Saxo · Global equities
+SE0017486889,1000,Atlas Copco,Saxo · Global equities
+NO0010096985,900,Equinor,Saxo · Global equities
+IE0001827041,1100,CRH,Saxo · Global equities
+IL0010824113,900,Check Point Software,Saxo · Global equities
+AU000000BHP4,900,BHP,Saxo · Global equities
+SG1L01001701,800,DBS Group,Saxo · Global equities
+HK0000069689,700,AIA Group,Saxo · Global equities
+KR7005930003,900,Samsung Electronics,Saxo · Global equities
+TW0002330008,1200,TSMC,Saxo · Global equities
+INE002A01018,700,Reliance Industries,Saxo · Global equities
+BRPETRACNPR6,500,Petrobras,Saxo · Global equities
+MX01WA000038,500,Walmex,Saxo · Global equities
+SA14TG012N13,400,Saudi Aramco,Saxo · Global equities
+AEE000301011,400,Emaar Properties,Saxo · Global equities
+PLPKO0000016,400,PKO Bank Polski,Saxo · Global equities
+HU0000061726,400,OTP Bank,Saxo · Global equities
+CZ0005112300,300,CEZ,Saxo · Global equities
+TREBIMM00018,300,BIM,Saxo · Global equities
+QA0006929895,300,Qatar National Bank,Saxo · Global equities
+KW0EQ0100085,300,Kuwait Finance House,Saxo · Global equities
+EGS60121C018,250,Commercial International Bank,Saxo · Global equities
+PHY806761029,250,SM Investments,Saxo · Global equities
+MA0000011488,250,Maroc Telecom,Saxo · Global equities
+LU1598757687,400,ArcelorMittal,Saxo · Global equities
+MYL1155OO000,250,Maybank,Saxo · Global equities
+ID1000109507,300,Bank Central Asia,Saxo · Global equities
+CL0000000035,200,Aguas Andinas,Saxo · Global equities
+NZFAPE0001S2,250,Fisher & Paykel Healthcare,Saxo · Global equities
+CASH,2500,Cash EUR,Saxo · Global equities

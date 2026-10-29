@@ -29,10 +29,12 @@ from shapely.geometry.polygon import orient
 
 import metrics
 import rebalance
+import report_export
 from importer import SEPARATORS, column_labels, detect, extract, read_tables
 
 LOGO_PNG = Path(__file__).parent / "assets" / "logo.png"   # static frame, browser-tab icon
-LOGO_SVG_FILE = Path(__file__).parent / "assets" / "logo.svg"   # animated radar, shown next to the name
+ASSETS_DIR = Path(__file__).parent / "assets"
+LOGO_SVG_FILE = ASSETS_DIR / "logo.svg"   # animated radar, shown next to the name
 st.set_page_config(page_title="PortfolioScan", page_icon=str(LOGO_PNG), layout="wide")
 
 # ----------------------------------------------------------------------------
@@ -41,21 +43,23 @@ st.set_page_config(page_title="PortfolioScan", page_icon=str(LOGO_PNG), layout="
 # Fonts: change these names to try other fonts (each must exist on Google Fonts).
 FONT_DISPLAY = "Inter Tight"   # big titles ("See where your money lives.")
 FONT_SANS = "Inter"   # text
-FONT_MONO = "JetBrains Mono"    # figures, labels, logs
+FONT_BRAND = "Syne"    # the "portfolioscan/" wordmark
+FONT_MONO = FONT_SANS  # figures, labels, logs: one font across the app (figures use tabular digits, see NUM_CSS)
+# Figures keep a fixed width per digit, so columns of numbers stay aligned without a monospace font.
+NUM_CSS = "body, table, input { font-variant-numeric: tabular-nums; }"
 FONTS_CSS = ("https://fonts.googleapis.com/css2?"
              + "&".join(f"family={f.replace(' ', '+')}:wght@400;500;600;700"
-                        for f in dict.fromkeys([FONT_DISPLAY, FONT_SANS, FONT_MONO]))
+                        for f in dict.fromkeys([FONT_DISPLAY, FONT_SANS, FONT_MONO, FONT_BRAND]))
              + "&display=swap")
 
 # Logo mark, shown left of the "PortfolioScan" name (landing page, scan screen, small-screen notice).
 LOGO_IMG = (f'<img src="data:image/svg+xml;base64,{base64.b64encode(LOGO_SVG_FILE.read_bytes()).decode()}" alt="" '
             'style="width:3em;height:3em;vertical-align:-.38em">')
-LOGO = f"<i>{LOGO_IMG}</i>PortfolioScan"
-# Text effect on the "PortfolioScan" name: blue-white gradient with a slow light sweep (reduced-motion: static).
-LOGO_FX = ("background: linear-gradient(100deg, #f0efec 0%, #86b6ef 30%, #3987e5 50%, #86b6ef 70%, #f0efec 100%) 0 0 / 250% 100%; "
-           "-webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: logosweep 6s linear infinite;")
-LOGO_FX_CSS = ("@keyframes logosweep { from { background-position: 250% 0; } to { background-position: 0 0; } } "
-               "@media (prefers-reduced-motion: reduce) { .logo { animation: none !important; } }")
+LOGO = f"<i>{LOGO_IMG}</i>portfolioscan/"
+# The "portfolioscan/" wordmark: its own font, plain colour (shared by every .logo rule).
+LOGO_FX = (f"font-family: '{FONT_BRAND}', '{FONT_SANS}', sans-serif !important; letter-spacing: -.02em !important; "
+           "color: #f0efec !important;")
+LOGO_FX_CSS = ""
 GITHUB_URL = "https://github.com/gabinle/PortfolioScan2"
 GITHUB_ICON = ('<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>')
 PLANE = "#0a0c10"
@@ -248,6 +252,7 @@ TERM_CSS = f"""
 CSS = f"""
 <style>
 @import url('{FONTS_CSS}');
+{NUM_CSS}
 
 html, body, [data-testid="stAppViewContainer"] {{
   font-family: '{FONT_SANS}', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -361,7 +366,7 @@ html, body, [data-testid="stAppViewContainer"] {{
   background: radial-gradient(600px 400px at 50% 35%, rgba(57,135,229,0.18), transparent 70%), {STAGE};
   font-family: '{FONT_SANS}', system-ui, sans-serif; color: {INK};
 }}
-.mobile-block .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 700; font-size: 1.3rem; line-height: 1; }}
+.mobile-block .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 600; font-size: 1.3rem; line-height: 1; }}
 {LOGO_FX_CSS}
 .mobile-block .logo i {{ display: inline-flex; position: relative; top: -.06em; font-style: normal; color: {BLUE}; margin-right: .35rem; }}
 .mobile-block .icon {{ font-size: 2.6rem; filter: drop-shadow(0 0 18px rgba(57,135,229,.7)); }}
@@ -1216,7 +1221,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="stHeader"],
 [data-testid="stDecoration"], [data-testid="stStatusWidget"] {{ display: none !important; }}
 .scanhead {{ display: flex; align-items: center; gap: 1.2rem; margin-bottom: 2.4vh; }}
-.scanhead .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 700; font-size: 1.3rem; line-height: 1; }}
+.scanhead .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 600; font-size: 1.3rem; line-height: 1; }}
 {LOGO_FX_CSS}
 .scanhead .logo i {{ display: inline-flex; position: relative; top: -.06em; font-style: normal; color: {BLUE}; margin-right: .35rem; }}
 .scanhead .live {{ font: 600 10.5px '{FONT_MONO}', monospace; letter-spacing: .18em; color: #fff;
@@ -2047,7 +2052,9 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
     # Top tab bar: the overview is the globe and its cards, every other tab is a full-page view.
     tabs = [("overview", "Overview"), ("countries", "Geography"), ("sectors", "Sectors"),
             ("holdings", "Holdings"), ("accounts", "Accounts"), ("metrics", "Metrics")]
-    buttons = [("data", f"⚠ Data · {len(issues)}" if issues else "✓ Data", "Data issues & log")]
+    window_size = {"export": ' data-small="md"'}  # a medium window, between the small forms and the full tables
+    buttons = [("data", f"⚠ Data · {len(issues)}" if issues else "✓ Data", "Data issues & log"),
+               ("export", "⤓ Export", "Export a report")]
     charts = {"tree": treemap_spec(df),
               "ctrybars": bars_spec(country_w, top=20), "regbars": bars_spec(region_w, top=20)}
     sim_tpl = ""
@@ -2073,7 +2080,8 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
                    f'<div><div class="mh">Country weight change</div><div class="ch" data-chart="dctry"></div></div>'
                    f'</div>')
     dock = ('<div class="btns">' + "".join(
-        f'<button data-open="{k}" data-title="{t}">{label}</button>' for k, label, t in buttons)
+        f'<button data-open="{k}" data-title="{t}"{window_size.get(k, "")}>{label}</button>'
+        for k, label, t in buttons)
         + '<button id="restart" class="restart" title="Back to the upload page">⟲ Restart</button>'
         + f'<a href="{GITHUB_URL}" target="_blank" rel="noopener noreferrer" title="Source code on GitHub">'
         + '⌥ GitHub ↗</a></div>')
@@ -2102,7 +2110,9 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
                 return f"<h3>{t}</h3>"
             k, title = title_opens[t]
             return f'<h3 class="lnk" data-go="{k}" title="Open {title}">{t}</h3>'
-        whole = {} if demo else {"Accounts": ("accounts", "Accounts")}  # the whole card opens its tab
+        # The whole card opens its tab (rows with their own click, accounts and countries, keep it).
+        whole = {} if demo else {"Portfolio": ("holdings", "Holdings"), "Accounts": ("accounts", "Accounts"),
+                                 **title_opens}
 
         def card(t, body):
             if t not in whole:
@@ -2139,13 +2149,36 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
         f"{c['js']}\nreturn option; }})()}};\n" for k, c in charts.items())
 
     top = f"{g.iloc[0]['country']} · {g.iloc[0]['pct']:.1f}%" if len(g) else "—"
-    figures = []  # key figures for the loading screen (first display of an analysis)
-    if intro and not demo:
+    figures, report = [], {}  # key figures for the loading screen (first display of an analysis); export summary
+    if not demo:
         # Precision: the share of the whole value (excluded funds included) whose country and sector are both known.
         unknown = df.loc[(df["sector"] == "Unknown") | ((df["iso3"].isna() | df["country"].isin(missing))
                                                          & ~df["country"].isin([CASH_LABEL, "Other"])), "value"].sum()
-        precision = 100 * (total - unknown) / (total + float(excluded["value"].sum()) or 1)
-        figures = [(fmt_money(total), "total value"), (f"{len(holdings)}", "positions"), (f"{precision:.1f}%", "precision")]
+        excluded_v = float(excluded["value"].sum()) if len(excluded) else 0.0
+        precision = 100 * (total - unknown) / (total + excluded_v or 1)
+        if intro:
+            figures = [(fmt_money(total), "total value"), (f"{len(holdings)}", "positions"),
+                       (f"{precision:.1f}%", "precision")]
+
+        def effective(w):  # effective number of categories: 1 / sum of squared weights, real categories only
+            real = w[~w.index.isin(NEUTRAL)]
+            real = real / real.sum() if real.sum() else real
+            return round(float(1 / (real ** 2).sum()), 1) if len(real) else 0.0
+        hw = holdings.sort_values("weight", ascending=False)["weight"]
+        pf = st.session_state.get("pf") or {}
+        report = {
+            "title": str(pf.get("name") or "Portfolio"), "date": datetime.now().strftime("%d %B %Y"),
+            "total": float(total), "n": len(holdings), "accounts": len(accounts),
+            "countries": int(df.loc[~df["country"].isin(NEUTRAL), "country"].nunique()),
+            "sectors": int(df.loc[~df["sector"].isin(NEUTRAL), "sector"].nunique()),
+            "resolved": round(100 * resolved / max(len(holdings), 1), 1), "precision": round(precision, 1),
+            "excluded": int(excluded["isin"].nunique()) if len(excluded) else 0, "excluded_v": excluded_v,
+            "eff_c": effective(country_w), "eff_s": effective(sec_w), "eff_p": effective(hw),
+            "top1": [str(holdings.sort_values("weight", ascending=False).iloc[0]["label"]), round(100 * float(hw.iloc[0]), 2)]
+            if len(hw) else ["", 0],
+            "top5": round(100 * float(hw.head(5).sum()), 1), "top10": round(100 * float(hw.head(10).sum()), 1),
+            "issues": [{"n": str(x["n"]), "i": x["i"], "issue": x["issue"], "p": round(x["p"], 2)} for x in issues],
+            "notes": list(notes)}
     legend = ", ".join(rgb_hex(ramp(i / 4, GLOBE_STOPS)) for i in range(5))
     payload = _js_json({"features": features, "rings": rings})
 
@@ -2155,6 +2188,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
 <script src="{ECHARTS_JS}"></script>
 <style>
   * {{ box-sizing:border-box; }}
+  {NUM_CSS}
   html, body {{ margin:0; padding:0; height:100%; overflow:hidden; color:{INK}; font-family:'{FONT_SANS}',system-ui,sans-serif;
                background:radial-gradient(1100px 700px at 50% 45%, rgba(57,135,229,0.10), transparent 62%), {STAGE}; }}
   #stage {{ position:relative; width:100%; height:100vh; }}
@@ -2171,25 +2205,23 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   /* Top tab bar: a glass pill; a glowing indicator slides under the active tab. */
   /* The tabs and the folded magnifier (8px gap + 46px pill) are centred as one group. */
   #tabbar {{ position:absolute; top:12px; left:50%; transform:translateX(calc(-50% - 27px)); z-index:7; display:flex; gap:2px;
-            padding:4px; background:rgba(12,15,21,.74); border:1px solid rgba(255,255,255,.08); border-radius:12px;
-            backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 8px 30px rgba(0,0,0,.35); }}
+            padding:4px; border-radius:16px; }}  /* the glass itself: see "Liquid glass" below */
   #tabbar button {{ position:relative; z-index:1; font:500 13.5px '{FONT_SANS}',sans-serif; color:{INK2};
-                   background:transparent; cursor:pointer; border:0; border-radius:9px; padding:8px 18px;
+                   background:transparent; cursor:pointer; border:0; border-radius:12px; padding:8px 18px;
                    white-space:nowrap; transition:color .2s; }}
   #tabbar button:hover {{ color:{INK}; }}
   #tabbar button.on {{ color:#86b6ef; }}
-  #tabbar .ind {{ position:absolute; top:4px; bottom:4px; left:0; width:0; border-radius:9px; pointer-events:none;
+  #tabbar .ind {{ position:absolute; top:4px; bottom:4px; left:0; width:0; border-radius:12px; pointer-events:none;
                  background:rgba(57,135,229,.16); border:1px solid rgba(57,135,229,.35);
                  box-shadow:0 0 18px rgba(57,135,229,.25), inset 0 0 12px rgba(57,135,229,.12);
                  transition:left .32s cubic-bezier(.4,0,.2,1), width .32s cubic-bezier(.4,0,.2,1); }}
   /* Search: a magnifier pill right of the tabs that widens into a search box, results drop below it. */
   #tabbar .srch {{ position:absolute; left:calc(100% + 9px); top:-1px; bottom:-1px; display:flex; align-items:center; gap:2px;
-                  padding:0 4px; background:rgba(12,15,21,.74); border:1px solid rgba(255,255,255,.08); border-radius:12px;
-                  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 8px 30px rgba(0,0,0,.35);
-                  transition:border-color .2s, box-shadow .2s; }}
-  #tabbar .srch:hover {{ border-color:rgba(57,135,229,.35); }}
-  #tabbar .srch.open {{ border-color:rgba(57,135,229,.55);
-                       box-shadow:0 0 0 3px rgba(57,135,229,.12), 0 0 22px rgba(57,135,229,.2), 0 8px 30px rgba(0,0,0,.35); }}
+                  padding:0 4px; border-radius:16px; transition:box-shadow .2s; }}
+  #tabbar .srch:hover {{ box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 12px 40px rgba(0,0,0,.45),
+                                    0 0 18px rgba(57,135,229,.22); }}
+  #tabbar .srch.open {{ box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 3px rgba(57,135,229,.14),
+                                   0 0 24px rgba(57,135,229,.3), 0 12px 40px rgba(0,0,0,.45); }}
   #tabbar .srch button {{ width:34px; height:34px; padding:0; display:grid; place-items:center; color:{INK2}; }}
   #tabbar .srch:hover button, #tabbar .srch.open button {{ color:#86b6ef; }}
   #srch-in {{ width:0; padding:0; opacity:0; border:0; outline:none; background:transparent; color:{INK};
@@ -2262,7 +2294,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
     #tabbar .ind {{ transition:none; }}
   }}
   .assets {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:4px 28px; margin-bottom:18px; }}
-  .logo {{ display:inline-flex; align-items:center; {LOGO_FX} font-weight:700; font-size:1.3rem; line-height:1; }}
+  .logo {{ display:inline-flex; align-items:center; {LOGO_FX} font-weight:600; font-size:1.3rem; line-height:1; }}
   {LOGO_FX_CSS}
   .logo i {{ display:inline-flex; position:relative; top:-.06em; font-style:normal; margin-right:.35rem; }}
   .logo img {{ width:2.4em !important; height:2.4em !important; }}
@@ -2272,16 +2304,60 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
           letter-spacing:.14em; text-transform:uppercase; color:#86b6ef; border:1px solid rgba(57,135,229,.4);
           border-radius:999px; padding:.3rem .7rem; background:rgba(57,135,229,.08); }}
   html:has(body.demo), body.demo {{ background:transparent; }}  /* blend into the landing page behind it */
+  /* Landing demo: the landing page's sober zinc look. Neutral cards with hairline borders, titles in sentence case,
+     thin accent bars without glow; figures stay monospace. */
+  body.demo .card {{ border-radius:14px; padding:14px 16px 8px;
+    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)), rgba(24,24,27,.6);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 16px 40px -12px rgba(0,0,0,.5); }}
+  body.demo .card::before {{ background:none; }}
+  body.demo .card::after {{ background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06)); }}
+  body.demo .card h3 {{ font:500 12.5px '{FONT_SANS}',sans-serif; letter-spacing:0; text-transform:none; color:#a1a1aa;
+    margin-bottom:12px; }}
+  body.demo .row {{ font-size:13px; margin-bottom:10px; }}
+  body.demo .row .nm {{ color:#e4e4e7; }}
+  body.demo .row .pc {{ color:#d4d4d8; font-size:12px; }}
+  body.demo .row .trk {{ height:2px; background:rgba(255,255,255,.07); }}
+  body.demo .row .trk div {{ background:{BLUE}; box-shadow:none; }}
+  body.demo .row.hov:hover {{ background:rgba(255,255,255,.04); }}
+  body.demo #legend .lgk {{ color:#a1a1aa; text-shadow:0 1px 10px rgba(9,9,11,.95), 0 0 2px rgba(9,9,11,.9); }}
+  body.demo #legend .lgk b {{ color:#e4e4e7; font-weight:500; }}
+  body.demo #legend .hint {{ font:12px '{FONT_SANS}',sans-serif; color:#71717a; }}
+  body.demo #legend .credit {{ color:#a1a1aa; border-left-color:rgba(255,255,255,.1); }}
+  body.demo #legend .credit:hover {{ color:#fafafa; text-shadow:none; }}
+  body.demo #insp {{ background:rgba(24,24,27,.96); border-color:rgba(255,255,255,.1);
+    box-shadow:0 18px 50px rgba(0,0,0,.55); }}
+  body.demo #insp .ik {{ font:500 11px '{FONT_SANS}',sans-serif; letter-spacing:0; text-transform:none; color:#71717a; }}
+  body.demo #insp .ih span, body.demo #insp .iv {{ color:#d4d4d8; }}
   .stack {{ margin:auto 0; display:flex; flex-direction:column; gap:12px; }}
   #right {{ right:16px; }}
-  .card {{ background:rgba(12,15,21,.74); border:1px solid rgba(255,255,255,.07); border-radius:14px;
-          padding:14px 16px 10px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-          box-shadow:0 8px 30px rgba(0,0,0,.35); flex-shrink:0; }}
+  /* Liquid glass (cards, tab bar, search pill): a thin tinted material that blurs and saturates what lies behind,
+     a rim of light brighter at the top left (::after, a masked gradient border), a soft specular glint (::before),
+     an inner bevel and a deep shadow. Content sits above the two layers. */
+  .card, #tabbar, #tabbar .srch {{
+    background:linear-gradient(160deg, rgba(255,255,255,.085), rgba(255,255,255,.02) 38%, rgba(255,255,255,.035)),
+               rgba(13,17,25,.46);
+    border:1px solid transparent;
+    backdrop-filter:blur(26px) saturate(175%); -webkit-backdrop-filter:blur(26px) saturate(175%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 1px rgba(255,255,255,.04),
+               inset 0 0 22px rgba(255,255,255,.025), 0 12px 40px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.25); }}
+  .card::before, #tabbar::before {{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background:radial-gradient(120% 70% at 8% 0%, rgba(255,255,255,.10), transparent 55%),
+               radial-gradient(80% 50% at 100% 100%, rgba(134,182,239,.06), transparent 60%); }}
+  .card::after, #tabbar::after, #tabbar .srch::after {{ content:""; position:absolute; inset:-1px; border-radius:inherit;
+    padding:1px; pointer-events:none;
+    background:linear-gradient(150deg, rgba(255,255,255,.42), rgba(255,255,255,.08) 32%, rgba(255,255,255,.03) 58%,
+                               rgba(134,182,239,.28));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; }}
+  .card > * {{ position:relative; z-index:1; }}
+  .card {{ position:relative; border-radius:20px; padding:14px 16px 10px; flex-shrink:0; }}
   .card h3 {{ margin:0 0 10px; font:500 10.5px '{FONT_MONO}',monospace; letter-spacing:.2em;
              text-transform:uppercase; color:{BLUE}; }}
   .card h3.lnk {{ cursor:pointer; transition:color .15s; }}
-  .card.clickable {{ cursor:pointer; transition:border-color .15s, background .15s; }}
-  .card.clickable:hover {{ border-color:rgba(57,135,229,.5); background:rgba(16,22,32,.82); }}
+  .card.clickable {{ cursor:pointer; transition:box-shadow .2s, background-color .2s; }}
+  .card.clickable:hover {{ background-color:rgba(20,30,46,.55);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 26px rgba(134,182,239,.08),
+               0 12px 40px rgba(0,0,0,.45), 0 0 24px rgba(57,135,229,.25); }}
   .card.clickable:hover h3.lnk {{ color:{INK}; }}
   .card h3.lnk::after {{ content:" ›"; }}
   .card h3.lnk:hover {{ color:{INK}; }}
@@ -2312,6 +2388,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .tform .err {{ font:12px '{FONT_MONO}',monospace; color:{RED}; min-height:16px; }}
   .tform .cta {{ margin:0; padding:11px; }}
   .mbox.sm {{ width:min(440px, 92vw); height:auto; }}
+  .mbox.md {{ width:min(680px, 94vw); height:auto; max-height:90vh; }}
   .row {{ display:grid; grid-template-columns:1fr auto; column-gap:8px; font-size:12.5px; margin-bottom:9px; }}
   .row .nm {{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
   .row .pc {{ font-family:'{FONT_MONO}',monospace; color:#86b6ef; font-size:12px; }}
@@ -2416,7 +2493,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .drow .up {{ color:#86b6ef; font-family:'{FONT_MONO}',monospace; white-space:nowrap; }}
   .drow .dn {{ color:{RED}; font-family:'{FONT_MONO}',monospace; white-space:nowrap; }}
   .empty {{ color:{MUTED}; font-size:12px; padding-bottom:8px; }}
-  .btns {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }}
+  .btns {{ display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; }}
   .btns button, .btns a {{ font:11px '{FONT_MONO}',monospace; color:{INK2}; white-space:nowrap;
                  background:rgba(57,135,229,.08); border:1px solid rgba(57,135,229,.35); border-radius:9px;
                  padding:8px 4px; cursor:pointer; transition:all .15s; text-align:center; text-decoration:none; }}
@@ -2484,6 +2561,10 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   .tools button {{ font:12px '{FONT_MONO}',monospace; color:{INK2}; background:rgba(57,135,229,.1);
                   border:1px solid rgba(57,135,229,.4); border-radius:9px; padding:8px 12px; cursor:pointer; }}
   .tools button:hover {{ color:{INK}; }}
+  .tools button.act {{ font:600 12.5px '{FONT_SANS}',sans-serif; white-space:nowrap; }}
+  .tools button[data-open="test"] {{ color:#fff; background:linear-gradient(90deg,#1c5cab,{BLUE});
+                                    border-color:rgba(134,182,239,.5); }}
+  .tools button[data-open="test"]:hover {{ filter:brightness(1.08); }}
   table {{ width:100%; border-collapse:collapse; font-size:12.5px; }}
   th {{ position:sticky; top:-16px; background:#10141b; text-align:left; font:500 10.5px '{FONT_MONO}',monospace;
        letter-spacing:.12em; text-transform:uppercase; color:{MUTED}; padding:9px 10px; cursor:pointer;
@@ -2500,6 +2581,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   {TERM_CSS}
   {rebalance.css(BLUE, INK, INK2, MUTED, RED, FONT_MONO, FONT_SANS)}
   {metrics.css(BLUE, INK, INK2, MUTED, RED, FONT_MONO, FONT_SANS)}
+  {report_export.css(BLUE, INK, INK2, MUTED, FONT_SANS)}
   #mbody .term-body {{ height:calc(min(780px, 90vh) - 180px); }}
 
   {"" if demo else f'''@media (max-width: 980px) {{
@@ -2546,7 +2628,10 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
 <template id="t-holdings"><div class="mh">Asset classes</div><div class="assets">{
   _rows([(k, 100 * v, fmt_money(v * total), None, None) for k, v in asset_w.items()], grey=())}</div>
   <div class="mh">Positions</div><div class="tools"><input id="q" placeholder="Filter by name, ISIN, ticker, country, sector…">
-  <button id="csv">⤓ Export CSV</button></div><table><thead id="hh"></thead><tbody id="hb"></tbody></table></template>
+  <button id="csv">⤓ Export CSV</button>
+  <button class="act" data-open="test" data-title="Test a position" data-small="1">＋ Test a position</button>
+  <button class="act" data-open="rebalance" data-title="Rebalance Assistant">⚖ Rebalance Assistant</button></div>
+  <table><thead id="hh"></thead><tbody id="hb"></tbody></table></template>
 <template id="t-sim">{sim_tpl}</template>
 <template id="t-data"><div class="tabs"><button class="tab on" data-tab="iss">Issues · {len(issues)}</button>
   <button class="tab" data-tab="scan">Scan log</button><button class="tab" data-tab="src">Data sources</button></div>
@@ -2554,6 +2639,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   <div class="tabp" data-p="scan" hidden>{render_terminal(st.session_state.log, live=False)}</div>
   <div class="tabp" data-p="src" hidden>{lineage_tpl}</div></template>
 <template id="t-rebalance">{rebalance.TEMPLATE}</template>
+<template id="t-export">{report_export.TEMPLATE}</template>
 <template id="t-metrics">{metrics.TEMPLATE}</template>
 <template id="t-accounts"><div class="acc"><div class="acc-list" id="acc-list"></div>
   <div class="acc-detail" id="acc-detail"></div></div></template>
@@ -2576,6 +2662,7 @@ const CW = {_js_json([[k, 100 * float(v)] for k, v in country_w.items()])};
 const RW = {_js_json([[k, 100 * float(v)] for k, v in region_w.items()])};
 const BAR = {{ grad: {_js_json(BAR_GRADIENT)}, muted: {_js_json(MUTED)} }};
 const ACC = {_js_json(accounts)};
+const REPORT = {_js_json(report)};
 const RB = {_js_json(rb)};
 const MT = {metrics.js_data(mt)};
 const NEUTRAL = {_js_json(list(NEUTRAL))}, NLABEL = {_js_json(NEUTRAL_LABEL)};  // per country / sector / region: an ETF appears once, with its share
@@ -2594,7 +2681,7 @@ const world = Globe({{ animateIn: true }})(el)
   .backgroundColor('rgba(0,0,0,0)')
   .globeImageUrl('{GLOBE_IMG}')
   .bumpImageUrl('{GLOBE_BUMP}')
-  .showAtmosphere(true).atmosphereColor('{BLUE}').atmosphereAltitude(0.2)
+  .showAtmosphere(true).atmosphereColor('{"#8a97ad" if demo else BLUE}').atmosphereAltitude({0.13 if demo else 0.2})
   .polygonsData(D.features)
   // Unheld countries are outlines only: a filled cap hugging the sphere z-fights with the texture.
   .polygonCapColor(d => d.properties.held ? d.properties.cap : 'rgba(0,0,0,0)')
@@ -2691,7 +2778,10 @@ document.querySelectorAll('.row.hov').forEach(row => {{
   }});
   row.addEventListener('mouseleave', () => {{ hideSoon(); if (k === 'c') {{ highlight(null); holdSpin(1500); }} }});
   row.addEventListener('wheel', wheelToInsp, {{ passive: false }});
-  if (row.dataset.lat) row.addEventListener('click', () => flyTo(+row.dataset.lat, +row.dataset.lng));
+  if (row.dataset.lat) row.addEventListener('click', e => {{
+    e.stopPropagation();  // flies the globe there; the card around it would open the Geography tab
+    flyTo(+row.dataset.lat, +row.dataset.lng);
+  }});
 }});
 
 // Globe hover. globe.gl re-checks hover on every frame at the *last known* pointer position and never
@@ -2820,12 +2910,14 @@ function openModal(id, title, small) {{
   hideInsp(); endGlobeHover();
   mbody.replaceChildren(document.getElementById('t-' + id).content.cloneNode(true));
   document.getElementById('mtitle').textContent = title;
-  modal.querySelector('.mbox').classList.toggle('sm', !!small);
+  modal.querySelector('.mbox').classList.toggle('sm', !!small && small !== 'md');
+  modal.querySelector('.mbox').classList.toggle('md', small === 'md');
   modal.hidden = false;
   world.pauseAnimation();
   requestAnimationFrame(() => {{
     if (id === 'data') {{ initFix(); initTabs(); }}
     if (id === 'rebalance') initRebalance();
+    if (id === 'export') initExport();
     if (id === 'test') initTest();
   }});
 }}
@@ -2834,8 +2926,10 @@ function closeModal() {{
   modal.hidden = true; mbody.replaceChildren();
   if (curTab === 'overview') world.resumeAnimation();
 }}
-document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click',
-  () => openModal(b.dataset.open, b.dataset.title, b.dataset.small)));
+document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', e => {{
+  e.stopPropagation();  // a button inside a clickable card (Portfolio) opens its window, not the card's tab
+  openModal(b.dataset.open, b.dataset.title, b.dataset.small);
+}}));
 
 // ── drill-down: every position in one country / sector / region, for the portfolio or one account ──
 // It pops up over the tab it was opened from; "Back" closes it.
@@ -2913,6 +3007,8 @@ function initCountries() {{
 {rebalance.JS}
 
 {metrics.JS}
+
+{report_export.JS}
 
 // ── data window tabs ──
 function initTabs() {{
@@ -3306,6 +3402,8 @@ let sortK = 'v', sortDir = -1;
 function initTable() {{
   document.getElementById('q').addEventListener('input', renderTable);
   document.getElementById('csv').addEventListener('click', exportCsv);
+  vbody.querySelectorAll('.tools [data-open]').forEach(b => b.onclick = () =>
+    openModal(b.dataset.open, b.dataset.title, b.dataset.small));
   renderTable();
 }}
 function exportCsv() {{
@@ -3345,17 +3443,18 @@ function placeDemoGlobe() {{
     if (t) textEdge = t.getBoundingClientRect().right;
   }} catch (e) {{}}
   const cardsEdge = document.getElementById('right').getBoundingClientRect().left;
-  const cx = (textEdge + cardsEdge) / 2;
-  // Size the globe to the free space between the text and the cards, with room for its halo:
+  // A large hero globe, set right of the text column (only its dark rim may reach under the text); the cards
+  // float over its right side.
+  const r = Math.max(140, H * 0.46);
+  const cx = Math.max((textEdge + cardsEdge) / 2, textEdge + r * 0.92);
   // screen radius r -> camera distance through the perspective camera's vertical field of view.
-  const r = Math.max(140, H * 0.46);  // large hero globe: it may tuck behind the text and cards
   const half = (world.camera().fov * Math.PI / 180) / 2;
   const ang = Math.atan(r * Math.tan(half) / (H / 2));
   world.pointOfView({{ altitude: 1 / Math.sin(ang) - 1 }}, 0);
   world.globeOffset([cx - W / 2, 0]);
   document.querySelectorAll('.hud').forEach(h => h.style.left = cx + 'px');
   document.getElementById('glow').style.background =
-    `radial-gradient(circle ${{r * 1.7}}px at ${{cx}}px 50%, rgba(57,135,229,0.16), transparent)`;
+    `radial-gradient(circle ${{r * 1.7}}px at ${{cx}}px 50%, rgba(255,255,255,0.035), transparent)`;
 }}
 placeDemoGlobe();
 
@@ -3573,76 +3672,143 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { overflo
 """
 
 
+# Landing page: a sober, premium product page. Zinc greys, hairline borders, one accent (the primary button and the
+# countries on the globe), Inter for text and Inter Tight for the title; monospace is left to figures only.
+ZINC = {950: "#09090b", 900: "#18181b", 800: "#27272a", 700: "#3f3f46", 500: "#71717a", 400: "#a1a1aa",
+        300: "#d4d4d8", 200: "#e4e4e7", 50: "#fafafa"}
 LANDING_CSS = f"""
 <style>
 html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overflow: hidden !important; }}
+[data-testid="stAppViewContainer"] {{
+  background: radial-gradient(1100px 620px at 72% 42%, rgba(255,255,255,.035), transparent 62%), {ZINC[950]} !important; }}
 [data-testid="stMainBlockContainer"], .block-container {{ padding: 0 0 0 4.5vw !important; max-width: 100% !important; }}
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="stHeader"],
 [data-testid="stDecoration"], [data-testid="stStatusWidget"] {{ display: none !important; }}
-/* The demo globe frame is a full-screen layer behind the page, so the globe and its halo are never clipped
-   by a column box; the text column floats above it. */
+/* The demo globe frame is a full-screen layer behind the page, so the globe is never clipped by a column box; the
+   text column floats above it. */
 [data-testid="stMain"] iframe {{ position: fixed !important; inset: 0; width: 100vw !important; height: 100vh !important;
   display: block; z-index: 0; }}
-[data-testid="stMain"] .st-key-landing {{ z-index: 2; }}
 [data-testid="stMain"] [data-testid="stVerticalBlock"] {{ gap: 0 !important; }}
 [data-testid="stMain"] [data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] style) {{ display: none; }}
-[data-testid="stMain"] .st-key-landing {{ position: relative; min-height: 100vh !important; height: 100vh !important;
+[data-testid="stMain"] .st-key-landing {{ position: relative; z-index: 2; min-height: 100vh !important; height: 100vh !important;
   display: flex !important; flex-direction: column !important; justify-content: center !important;
-  gap: .9rem !important; padding-right: 1.5rem; }}
-.st-key-landing > * {{ animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }}
-.st-key-landing > *:nth-child(2) {{ animation-delay: .12s; }}
-.st-key-landing > *:nth-child(3) {{ animation-delay: .22s; }}
-.st-key-landing > *:nth-child(4) {{ animation-delay: .32s; }}
-@keyframes rise {{ from {{ opacity: 0; transform: translateY(14px); }} to {{ opacity: 1; transform: none; }} }}
+  gap: 1.1rem !important; padding-right: 1.5rem; max-width: 600px; }}
+.st-key-landing, .st-key-landing p, .st-key-landing button {{ font-family: '{FONT_SANS}', system-ui, sans-serif; }}
+.st-key-landing > * {{ animation: rise .6s cubic-bezier(.2,.7,.2,1) both; }}
+.st-key-landing > *:nth-child(3) {{ animation-delay: .06s; }}
+.st-key-landing > *:nth-child(4) {{ animation-delay: .12s; }}
+.st-key-landing > *:nth-child(n+5) {{ animation-delay: .18s; }}
+@keyframes rise {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: none; }} }}
+@media (prefers-reduced-motion: reduce) {{ .st-key-landing > * {{ animation: none; }} }}
 
-.st-key-landing > :first-child {{ position: absolute !important; top: 4vh; left: 0; right: 1.5rem; }}  /* the nav */
+/* Top bar, across the whole page: brand on the left, GitHub in the top right corner. */
+.st-key-landing > :first-child {{ position: fixed !important; top: 3.2vh; left: 4.5vw; right: 2rem; z-index: 3;
+  width: auto !important; max-width: none !important; }}
+.st-key-landing > :first-child [data-testid="stMarkdown"], .st-key-landing > :first-child [data-testid="stMarkdownContainer"], .lnav {{ width: 100% !important; }}
 .lnav {{ display: flex; align-items: center; justify-content: space-between; }}
-.lnav .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 700; font-size: 1.3rem; line-height: 1; letter-spacing: -.01em; }}
+.lnav .logo {{ display: inline-flex; align-items: center; {LOGO_FX} font-weight: 600; font-size: 1.3rem; line-height: 1;
+              letter-spacing: -.01em; }}
 {LOGO_FX_CSS}
 .lnav .logo i {{ display: inline-flex; position: relative; top: -.06em; font-style: normal; color: {BLUE}; margin-right: .35rem; }}
-.gh {{ display: inline-flex; margin-top: 1rem; align-items: center; gap: .5rem; font: 500 12px '{FONT_SANS}', sans-serif; color: {INK2} !important;
-            text-decoration: none !important; border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
-            padding: .4rem .85rem; background: rgba(255,255,255,.04); transition: all .2s; }}
-.gh:hover {{ color: {INK} !important; border-color: rgba(57,135,229,.6); background: rgba(57,135,229,.12); }}
-.lnav .chip {{ font: 500 10.5px '{FONT_MONO}', monospace; letter-spacing: .14em; text-transform: uppercase;
-              color: #86b6ef; border: 1px solid rgba(57,135,229,.4); border-radius: 999px; padding: .3rem .7rem;
-              background: rgba(57,135,229,.08); }}
-.leyebrow {{ font: 500 11px '{FONT_MONO}', monospace; letter-spacing: .24em; text-transform: uppercase;
-            color: {BLUE}; margin-bottom: .7rem; display: flex; align-items: center; gap: .6rem; }}
-.leyebrow::before {{ content: ""; width: 26px; height: 1px; background: {BLUE}; }}
-.lh1 {{ font-family: '{FONT_DISPLAY}', '{FONT_SANS}', sans-serif !important;
-       font-size: clamp(2.4rem, 4.4vw, 4.2rem) !important; line-height: 1.02 !important; font-weight: 700 !important;
-       letter-spacing: -.045em; margin: 0 0 1rem !important; padding: 0 !important; color: {INK}; }}
-.lh1 span {{ background: linear-gradient(90deg, {BLUE} 0%, #86b6ef 55%, #cde2fb 100%);
-            -webkit-background-clip: text; background-clip: text; color: transparent; }}
-.lsub {{ font-size: 1.02rem; line-height: 1.6; color: {INK2}; max-width: 34rem; margin: 0 0 1.6vh; }}
-.lsub b {{ color: {INK}; font-weight: 600; }}
+.lgh {{ display: inline-flex; align-items: center; gap: .45rem; font-size: 13px; font-weight: 500;
+       color: {ZINC[400]} !important; text-decoration: none !important; padding: .35rem .7rem; border-radius: 8px;
+       border: 1px solid rgba(255,255,255,.08); transition: color .15s, border-color .15s, background .15s; }}
+.lgh:hover {{ color: {ZINC[50]} !important; border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.04); }}
+
+/* Hero */
+.lbadge {{ display: inline-flex; align-items: center; gap: .5rem; font-size: 12.5px; font-weight: 500;
+          color: {ZINC[300]}; padding: .3rem .75rem .3rem .6rem; border-radius: 999px; margin-bottom: 1.4rem;
+          border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); }}
+.lbadge i {{ width: 6px; height: 6px; border-radius: 50%; background: {BLUE}; }}
+.lh1 {{ font-family: '{FONT_BRAND}', '{FONT_SANS}', sans-serif !important;
+       font-size: clamp(2.4rem, 4.3vw, 4.1rem) !important; line-height: 1.04 !important; font-weight: 600 !important;
+       letter-spacing: -.03em; margin: 0 0 1.1rem !important; padding: 0 !important; color: {ZINC[50]}; }}
+.lh1 span {{ color: {ZINC[50]}; }}
+.lsub {{ font-size: 16.5px; line-height: 1.6; color: {ZINC[400]}; max-width: 33rem; margin: 0 0 .7rem; }}
+.lsub b {{ color: {ZINC[200]}; font-weight: 500; }}
+
+/* Upload: a quiet dashed zone; the primary button is the one accent. */
 .st-key-landing [data-testid="stFileUploaderDropzone"] {{
-  padding: 1.5rem 1.4rem; border-radius: 16px; border: 1px dashed rgba(57,135,229,.65);
-  background: linear-gradient(135deg, rgba(57,135,229,.14), rgba(57,135,229,.03));
-  box-shadow: 0 0 0 1px rgba(57,135,229,.08), 0 20px 50px -20px rgba(57,135,229,.45); transition: all .2s;
-}}
-.st-key-landing [data-testid="stFileUploaderDropzone"]:hover {{
-  border-color: #86b6ef; box-shadow: 0 0 0 1px rgba(57,135,229,.25), 0 24px 60px -18px rgba(57,135,229,.6);
-}}
-.lrow {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: .4rem; }}
-.lbox {{ border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: .9rem 1rem;
-        background: rgba(255,255,255,.025); }}
-.lk {{ font: 500 10px '{FONT_MONO}', monospace; letter-spacing: .2em; text-transform: uppercase; color: {MUTED};
-      margin-bottom: .6rem; }}
-.lbox table {{ width: 100%; border-collapse: collapse; font: 12px '{FONT_MONO}', monospace; color: {INK2}; }}
-.lbox th {{ text-align: left; color: {BLUE}; font-weight: 500; padding: 0 0 .35rem; }}
-.lbox td {{ padding: .2rem 0; border-top: 1px solid rgba(255,255,255,.05); }}
-.lstep {{ display: flex; gap: .7rem; align-items: baseline; font-size: .86rem; color: {INK2}; margin-bottom: .35rem; }}
-.lstep b {{ font: 600 11px '{FONT_MONO}', monospace; color: {BLUE}; }}
-.lfoot {{ display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font: 11px '{FONT_MONO}', monospace; color: {MUTED};
-         margin-top: .4rem; }}
-.lfoot span::before {{ content: "◆ "; color: {BLUE}; }}
+  padding: 1.25rem 1.3rem; border-radius: 12px; border: 1px dashed rgba(255,255,255,.14);
+  background: rgba(255,255,255,.025); box-shadow: none; transition: border-color .15s, background .15s; }}
+.st-key-landing [data-testid="stFileUploaderDropzone"]:hover {{ border-color: rgba(255,255,255,.26);
+  background: rgba(255,255,255,.04); }}
+.st-key-landing [data-testid="stFileUploaderDropzone"] button {{ background: transparent !important;
+  border: 1px solid rgba(255,255,255,.18) !important; border-radius: 8px !important; font-weight: 500 !important;
+  transition: border-color .15s, background .15s; }}
+.st-key-landing [data-testid="stFileUploaderDropzone"] button:hover {{ background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.32) !important; }}
+.st-key-landing [data-testid="stFileUploaderDropzone"] button * {{ color: {ZINC[200]} !important; }}
+.st-key-landing [data-testid="stFileUploaderDropzoneInstructions"] * {{ color: {ZINC[500]} !important; font-size: 13px; }}
+.st-key-landing [data-testid="stFileUploaderFile"] * {{ color: {ZINC[300]} !important; }}
+.st-key-start button {{ background: {BLUE} !important; border: 0 !important; border-radius: 10px !important;
+  padding: .55rem 1.1rem !important; box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 6px 20px -8px rgba(57,135,229,.6);
+  transition: filter .15s; }}
+.st-key-start button:hover {{ filter: brightness(1.08); }}
+.st-key-start button p {{ font-weight: 600 !important; font-size: 14px !important; color: #fff !important; }}
+
+/* Secondary actions, under the upload zone, on one line: the demo, then the optional OpenFIGI key (small, muted). */
+.st-key-lactions {{ display: flex !important; flex-direction: row !important; align-items: center !important;
+  justify-content: flex-start !important; gap: 1.4rem !important; margin-top: -.25rem; }}
+.st-key-lactions > * {{ width: auto !important; }}
 .st-key-demo button {{ padding: 0 !important; min-height: 0 !important; }}
-.st-key-demo button p {{ font: 600 13px '{FONT_MONO}', monospace !important; letter-spacing: .04em; color: #86b6ef; }}
-.st-key-demo button:hover p {{ color: {INK}; text-shadow: 0 0 14px rgba(57,135,229,.8); }}
+.st-key-demo {{ position: relative; top: -2px; }}  /* its larger text then shares the key link's baseline */
+.st-key-demo button p {{ font-size: 14px !important; font-weight: 500 !important; color: #9cc3f5 !important;
+  text-shadow: 0 0 14px rgba(57,135,229,.45); transition: color .2s, text-shadow .2s; }}
+.st-key-demo button:hover p {{ color: #cde2fb !important; text-shadow: 0 0 18px rgba(57,135,229,.75); }}
+.st-key-figi button {{ background: transparent !important; border: 0 !important; min-height: 0 !important;
+  padding: 0 !important; }}
+.st-key-figi button p, .st-key-figi button span {{ font-size: 13px !important; color: {ZINC[500]} !important;
+  transition: color .15s; }}
+.st-key-figi button:hover p, .st-key-figi button:hover span {{ color: {ZINC[200]} !important; }}
+
+/* How it works: three columns on the same left edge: a numbered dot, the step, one or two lines. */
+.lsteps {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6rem; margin-top: 1rem; padding-top: .9rem;
+          border-top: 1px solid rgba(255,255,255,.07); }}
+.lsteps em {{ display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+             border: 1px solid rgba(255,255,255,.12); font-style: normal; font-size: 11px; font-weight: 500;
+             color: {ZINC[400]}; margin-bottom: .5rem; font-variant-numeric: tabular-nums; }}
+.lsteps b {{ display: block; font-size: 14px; font-weight: 500; color: {ZINC[50]}; }}
+.lsteps p {{ margin: .3rem 0 0; font-size: 13px; line-height: 1.5; color: {ZINC[500]}; }}
+.ltrust {{ display: flex; flex-wrap: wrap; gap: .3rem .6rem; font-size: 12.5px; color: {ZINC[500]}; margin-top: 1.5rem; }}
+.ltrust span + span::before {{ content: "·"; margin-right: .6rem; color: {ZINC[700]}; }}
+.ltrust em {{ font-style: normal; color: {ZINC[300]}; font-variant-numeric: tabular-nums; }}
+@media (max-width: 1100px) {{ .lsteps {{ grid-template-columns: 1fr; gap: 1rem; }} }}
+/* Hovering a step shows a preview above it: a screenshot of that step and what happens there. */
+.lsteps > div {{ position: relative; cursor: default; outline: none; border-radius: 10px; margin: -.5rem; padding: .5rem;
+                transition: background .2s; }}
+.lsteps > div:hover, .lsteps > div:focus-visible {{ background: rgba(255,255,255,.03); }}
+.lprev {{ position: absolute; left: 0; bottom: calc(100% + 10px); width: 420px; z-index: 20; pointer-events: none;
+         border-radius: 14px; overflow: hidden; background: {ZINC[900]}; border: 1px solid rgba(255,255,255,.1);
+         box-shadow: 0 24px 60px -12px rgba(0,0,0,.75), 0 0 0 1px rgba(0,0,0,.4);
+         opacity: 0; visibility: hidden; transform: translateY(6px) scale(.98); transform-origin: bottom left;
+         transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s; }}
+.lsteps > div:last-child .lprev {{ left: auto; right: 0; transform-origin: bottom right; }}
+.lsteps > div:hover .lprev, .lsteps > div:focus-visible .lprev {{ opacity: 1; visibility: visible; transform: none;
+  transition: opacity .18s ease, transform .18s ease, visibility 0s; }}
+.lprev img {{ display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top;
+             border-bottom: 1px solid rgba(255,255,255,.08); }}
+.lprev > div {{ padding: .8rem .95rem .9rem; font-size: 12.5px; line-height: 1.55; color: {ZINC[400]}; }}
+.lprev > div b {{ display: block; font-size: 13.5px; color: {ZINC[50]}; margin-bottom: .2rem; }}
+@media (prefers-reduced-motion: reduce) {{ .lprev {{ transition: none; transform: none; }} }}
 </style>
 """
+
+
+# How it works: each step, and the preview shown when it is hovered (a real screenshot of that step).
+STEPS = [
+    ("upload", "Upload", "CSV or Excel from any broker, columns detected.",
+     "Drop one or several exports. For each file, the app finds the ISIN, value, name and account columns and shows "
+     "them highlighted, so you can check or change them before the scan."),
+    ("scan", "Scan", "Every position looked up across three data sources.",
+     "Each position goes through FinanceDatabase, Yahoo Finance and OpenFIGI. Funds are broken down into the countries "
+     "and sectors they really hold, live, with a log of every lookup."),
+    ("explore", "Explore", "Globe, metrics and a plan to rebalance.",
+     "Your exposure on a 3D globe, with tabs for geography, sectors, holdings, accounts and metrics, a rebalancing plan "
+     "for your next contribution, and a PDF report."),
+]
+STEP_SHOTS = {k: "data:image/jpeg;base64," + base64.b64encode((ASSETS_DIR / "steps" / f"{k}.jpg").read_bytes()).decode()
+              if (ASSETS_DIR / "steps" / f"{k}.jpg").exists() else "" for k, *_ in STEPS}
 
 
 def landing():
@@ -3651,25 +3817,28 @@ def landing():
     left, right = st.columns([5, 7], gap="small")
     with left, st.container(key="landing"):
         st.markdown(f'<div class="lnav"><span class="logo">{LOGO}</span>'
-                    '</div>', unsafe_allow_html=True)
+                    f'<a class="lgh" href="{GITHUB_URL}" target="_blank" rel="noopener noreferrer">{GITHUB_ICON}'
+                    'GitHub</a></div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="leyebrow">Portfolio intelligence</div>'
             '<h1 class="lh1">See where your<br><span>money lives.</span></h1>'
-            '<p class="lsub">Drop your <b>broker or insurer exports</b> (CSV or Excel, several at once). Stocks, '
-            'ETFs, SCPI and euro funds are mapped by <b>country, sector and asset class</b> on a live 3D globe.</p>',
+            '<p class="lsub">Drop the exports of your <b>brokers and insurers</b>, CSV or Excel, several at once. '
+            'Every stock, ETF, SCPI and euro fund is mapped by <b>country, sector and asset class</b> on a live '
+            '3D globe.</p>',
             unsafe_allow_html=True,
         )
         files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt"], accept_multiple_files=True,
                                  label_visibility="collapsed", key="up_main")
-        start = bool(files) and st.button(f"▶ Analyse {len(files)} file{'s' if len(files) > 1 else ''}",
+        start = bool(files) and st.button(f"Analyse {len(files)} file{'s' if len(files) > 1 else ''}",
                                           type="primary", key="start")
-        if DEMO_FILE.exists() and st.button("▶ Explore a demo portfolio", type="tertiary", key="demo"):
-            load_demo()
-            st.rerun()
         status = st.session_state.get("figi_status") if st.session_state.get("figi_user") else None
-        figi_label = ("OpenFIGI API key (optional)" if not st.session_state.get("figi_user")
-                      else "OpenFIGI API key · rejected" if status == "rejected" else "OpenFIGI API key · set")
-        with st.popover(figi_label, icon=":material/key:"):  # floats over the page: the layout does not move
+        figi_label = ("Add an OpenFIGI key" if not st.session_state.get("figi_user")
+                      else "OpenFIGI key · rejected" if status == "rejected" else "OpenFIGI key · set")
+        with st.container(horizontal=True, key="lactions"):  # the demo, then the optional OpenFIGI key
+            if DEMO_FILE.exists() and st.button("Or explore a demo portfolio", type="tertiary", key="demo"):
+                load_demo()
+                st.rerun()
+            figi_box = st.popover(figi_label, icon=":material/key:", key="figi")
+        with figi_box:  # floats over the page: the layout does not move
             # Copied out of the widget: Streamlit drops a widget's value once the landing page is gone.
             st.text_input("OpenFIGI API key", type="password", key="figi_input", label_visibility="collapsed",
                           value=st.session_state.get("figi_user", ""), placeholder="Paste your key, then press Enter",
@@ -3683,18 +3852,13 @@ def landing():
                        "[openfigi.com](https://www.openfigi.com/api). Kept for this session only, never stored."
                        + note)
         st.markdown(
-            '<div class="lrow">'
-            '<div class="lbox"><div class="lk">File format</div><table>'
-            '<tr><th>Any export</th><th>Auto-detected</th></tr>'
-            '<tr><td>ISIN column</td><td>✓</td></tr><tr><td>Value column</td><td>✓</td></tr>'
-            '</table></div>'
-            '<div class="lbox"><div class="lk">How it works</div>'
-            '<div class="lstep"><b>01</b>Upload, check the detected columns</div>'
-            '<div class="lstep"><b>02</b>Live scan across 3 sources</div>'
-            '<div class="lstep"><b>03</b>Explore, then test new positions</div></div></div>'
-            '<div class="lfoot"><span>45k+ stocks indexed</span><span>2,600+ ETFs</span>'
-            '<span>SCPI, euro funds &amp; cash</span></div>'
-            f'<a class="gh" href="{GITHUB_URL}" target="_blank" rel="noopener noreferrer">{GITHUB_ICON}GitHub</a>',
+            '<div class="lsteps">'
+            + "".join(f'<div tabindex="0"><em>{i}</em><b>{t}</b><p>{short}</p>'
+                      f'<aside class="lprev"><img alt="" src="{STEP_SHOTS[key]}"><div><b>{t}</b>{long}</div></aside></div>'
+                      for i, (key, t, short, long) in enumerate(STEPS, 1))
+            + '</div>'
+            '<div class="ltrust"><span><em>45,000+</em> stocks</span><span><em>2,600+</em> ETFs</span>'
+            '<span>SCPI, euro funds &amp; cash</span><span>Files never stored</span></div>',
             unsafe_allow_html=True,
         )
     with right:
