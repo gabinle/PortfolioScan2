@@ -29,8 +29,8 @@ piece of data comes from.
 
 ## Features
 
-- **Any broker, several files at once.** CSV or Excel exports are read as they are: separator, sheet, header row and
-  columns are detected for you, then confirmed in a review window.
+- **Any broker, several files at once.** CSV, Excel and PDF statements are read as they are: separator, sheet or
+  table, header row and columns are detected for you, then confirmed in a review window.
 - **Look-through analysis.** ETFs are broken down into the countries and sectors they actually hold, from the
   issuers' published data for 2,600+ funds.
 - **A 3D globe** coloured by your exposure, with live inspectors: hover a country, sector or region to see which
@@ -38,6 +38,10 @@ piece of data comes from.
 - **Six focused tabs**: Overview, Geography, Sectors, Holdings, Accounts and Metrics.
 - **Search everything** from one box: positions, countries, sectors, accounts, metrics and actions.
 - **Rebalance Assistant**: what to buy with your next contribution, line by line, to reach a target allocation.
+- **Health score**: a mark out of 100 from four open rules (geography, sectors, single-company risk, costs), each
+  shown with the figure measured, its scale and what would raise it.
+- **Real exposure to companies**: how much of the portfolio sits in Apple, NVIDIA or TSMC once every fund is looked
+  through, and through which lines.
 - **Portfolio metrics**: diversification, concentration, home bias, currency exposure, tilt against the world index,
   fund fees, P/E, dividend income.
 - **Full transparency**: every value is tagged with its source, every gap is listed, and any position can be corrected
@@ -52,13 +56,15 @@ piece of data comes from.
 3. [How each position is analysed](#how-each-position-is-analysed)
 4. [Using the app](#using-the-app)
 5. [Rebalance Assistant](#rebalance-assistant)
-6. [Metrics](#metrics)
-7. [Data issues and manual corrections](#data-issues-and-manual-corrections)
-8. [Testing a position](#testing-a-position)
-9. [Demo portfolio](#demo-portfolio)
-10. [Privacy](#privacy)
-11. [Limitations](#limitations)
-12. [Run locally](#run-locally) · [Deploy](#deploy-on-streamlit-community-cloud) ·
+6. [Health score](#health-score)
+7. [Companies, looking through funds](#companies-looking-through-funds)
+8. [Metrics](#metrics)
+9. [Data issues and manual corrections](#data-issues-and-manual-corrections)
+10. [Testing a position](#testing-a-position)
+11. [Demo portfolio](#demo-portfolio)
+12. [Privacy](#privacy)
+13. [Limitations](#limitations)
+14. [Run locally](#run-locally) · [Deploy](#deploy-on-streamlit-community-cloud) ·
     [Project layout](#project-layout) · [Refreshing the data](#refreshing-the-data) · [Credits](#credits)
 
 ---
@@ -82,8 +88,17 @@ It is kept for your session only and never stored; it takes priority over a key 
 
 ### Accepted files
 
-`.csv`, `.txt`, `.xlsx` and `.xls`, up to 5 MB each, as many files as you like. Each file is reviewed on its own,
-then all of them are merged into one portfolio: the same ISIN held in several files is summed.
+`.csv`, `.txt`, `.xlsx`, `.xls` and `.pdf`, up to 5 MB each, as many files as you like. Each file is reviewed on its
+own, then all of them are merged into one portfolio: the same ISIN held in several files is summed.
+
+**PDF statements** are turned into a table first, then go through the same detection as a spreadsheet:
+
+- tables drawn with lines are read as they are, and tables of the same width are joined across pages;
+- statements drawn without lines are rebuilt from where the words sit: the cells of the lines that hold an ISIN set
+  the columns, and every other line (titles, headers, totals) is placed in them;
+- an ISIN printed inside another column ("LVMH (FR0000121014)") gets a column of its own, "ISIN (found in text)".
+
+Scanned PDFs (images of pages) have no text to read: export CSV or Excel from your broker instead.
 
 ### What is detected automatically
 
@@ -237,7 +252,7 @@ or a test position, for instance).
 | **Overview** | The globe, coloured by the weight of each country, with the summary cards around it |
 | **Geography** | Bar charts of every country and region, with a search box. Hover a bar for its positions, click it to list them |
 | **Sectors** | A treemap of sectors and the positions inside each; click a sector to zoom in |
-| **Holdings** | The asset classes at the top, then every position with name, ISIN, ticker, country, sector, value, weight and sources. Filter, sort by any column, **Export CSV** |
+| **Holdings** | The asset classes, the largest companies looking through funds, then every position with name, ISIN, ticker, country, sector, value, weight and sources. Filter, sort by any column, **Export CSV**, **Test a position**, **Rebalance Assistant** |
 | **Accounts** | Each account with its value, share, asset classes, top countries, top sectors and positions. Click a country or sector to list that account's positions in it |
 | **Metrics** | Diversification, costs, valuation and income of the whole portfolio ([details](#metrics)) |
 | **Simulation** | Only with test positions: how they shift the sector and country weights |
@@ -273,7 +288,8 @@ work too ("frais", "pays", "rééquilibrer"…). Use **↑ ↓** to move, **↵*
 ### Export
 
 **⤓ Export** downloads a summary of the analysis. Pick the format and the sections to include (key figures,
-asset classes, countries and regions, sectors, accounts, concentration, every position, data quality):
+health score, largest companies, asset classes, countries and regions, sectors, accounts, concentration, every
+position, data quality):
 
 - **PDF report**: a designed A4 report, with a title band, key-figure tiles, an asset-class donut, bars for countries,
   regions and sectors, and tables for accounts and positions. It is drawn as vectors, so it stays sharp in print;
@@ -310,6 +326,38 @@ closer to it **without selling anything** (selling is an option you switch on).
   trade. It is solved in your browser, so it updates as you type, and your targets are remembered there.
 
 ---
+
+## Health score
+
+The **Metrics** tab opens on a score out of 100, also shown on the Portfolio card. It is the sum of four rules worth 25
+points each, and the page shows, for each rule, the figure measured, the scale, why it matters and what would raise it.
+Each rule gives full points up to a threshold, none beyond a second one, and points in proportion between:
+
+| Rule | What is measured | Full points | No points |
+|------|------------------|-------------|-----------|
+| Geographic spread | Gap with the world index's country weights (active share against MSCI ACWI) | 15% or less | 75% or more |
+| Sector balance | Gap with the world index's sector weights | 10% or less | 60% or more |
+| Single-company risk | Largest exposure to one company, through every stock and fund | 5% or less | 25% or more |
+| Costs | Fund fees (TER) over the whole portfolio, stocks counted at zero | 0.25% a year or less | 1.25% a year or more |
+
+Grades: 80 and above *well diversified*, 60 *solid*, 40 *concentrated*, below *highly concentrated*. A **confidence**
+line says how complete the data behind it is (value with a known country and sector, fees known, fund holdings found).
+The score measures diversification and costs only: it does not judge returns, nor whether the mix suits your goals and
+risk tolerance. A rule that cannot be measured (no fee known, say) is left out and the score is taken over the others.
+
+## Companies, looking through funds
+
+The **Holdings** tab lists the largest companies of the portfolio: each stock held directly, plus the largest holdings
+of every equity fund (its top 10 on Yahoo Finance, or its 25 largest lines from the issuer's file once the update script
+has written `data/etf_top_holdings.csv.gz`). Each company shows its weight, its value and the lines it comes from.
+
+- The same company is recognised across sources by its name, without the words that end most company names ("Inc",
+  "Co Ltd", "Class A"…). Those words are learnt from FinanceDatabase's 45,000 names, not listed by hand.
+- Bond funds are left out: their lines are bonds, not shares of companies.
+- A synthetic (swap) ETF only holds a collateral basket, so it uses the list of the closest physical ETF in the
+  snapshot (same index first, then the nearest name, those with the most holdings first). The page names it.
+- Only the largest lines of each fund are known, so a company's real exposure is at least what is shown; the page says
+  how much of the funds' value and of the portfolio the lists cover.
 
 ## Metrics
 
@@ -398,7 +446,8 @@ values, names and accounts never leave the app. Rebalance targets and trading fe
 - Each ETF keeps its 10 largest countries and sectors; the rest is "Other".
 - An ETF's country × sector pairing is approximated (the totals per country and per sector are exact).
 - Manual corrections and test positions last for the session only.
-- PDF exports are not read: export CSV or Excel from your broker.
+- Scanned PDFs are not read (no text in them), and an unusual PDF layout may need its columns picked by hand.
+- Company exposure only sees each fund's largest lines (10 from Yahoo, 25 from the issuers' files).
 
 ---
 
@@ -429,6 +478,7 @@ On Windows you can also double-click `run.bat`.
 | `importer.py` | Reads broker exports and detects their columns, accounts and special lines |
 | `rebalance.py` | The Rebalance Assistant: exposure data, window and calculation |
 | `metrics.py` | The Metrics tab: Yahoo valuation data, fees, world-index benchmark and the figures |
+| `insights.py` | The health score and the company exposure |
 | `report_export.py` | The Export window: PDF report, Excel workbook and CSV, built in the browser |
 | `run.bat` | Starts the app on Windows |
 | `.streamlit/config.toml` | Theme and the 5 MB upload limit |
@@ -442,6 +492,8 @@ On Windows you can also double-click `run.bat`.
 | `data/demo_portfolio.csv` | The demo portfolio (ISIN, value, name, account) |
 | `data/demo_results.json` | The demo stocks' pre-computed lookups, so the demo opens instantly |
 | `data/demo_fundamentals.json` | The demo stocks' P/E, yield and market cap, so its metrics open instantly |
+| `data/demo_holdings.json` | The demo funds' largest holdings, so its company exposure opens instantly |
+| `data/etf_top_holdings.csv.gz` | Each ETF's 25 largest equity lines (written by the update script; optional) |
 
 ## Refreshing the data
 

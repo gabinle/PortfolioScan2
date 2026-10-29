@@ -28,6 +28,7 @@ from shapely.geometry import MultiPolygon, Polygon, shape
 from shapely.geometry.polygon import orient
 
 import metrics
+import insights
 import rebalance
 import report_export
 from importer import SEPARATORS, column_labels, detect, extract, read_tables
@@ -505,6 +506,8 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 DEMO_FILE = DATA_DIR / "demo_portfolio.csv"     # isin,value,name,account: 6 accounts, stocks, ETFs, SCPI, cash
 DEMO_RESULTS = DATA_DIR / "demo_results.json"   # its lookups, pre-scanned so the demo opens instantly
 DEMO_FUNDAMENTALS = DATA_DIR / "demo_fundamentals.json"  # their P/E, yield, market cap...: ISIN -> fields
+DEMO_HOLDINGS = DATA_DIR / "demo_holdings.json"  # its funds' largest holdings: ISIN -> [[company, weight 0-1]]
+ETF_TOP_HOLDINGS = DATA_DIR / "etf_top_holdings.csv.gz"  # each ETF's 25 largest holdings (update script), if present
 ETF_COSTS = DATA_DIR / "etf_costs.csv.gz"        # each ETF's annual fee, P/E and yield (update script)
 
 
@@ -573,11 +576,109 @@ def position_kinds(isins) -> dict:
     return out
 
 
+def _holdings_file(stamp) -> dict:  # noqa: ARG001 — stamp only keys the cache
+    """ISIN -> [[company, weight 0-1]] from the update script's holdings file and the demo's pre-fetched holdings."""
+    out = {}
+    if DEMO_HOLDINGS.exists():
+        out.update({k: [tuple(h) for h in v] for k, v in json.loads(DEMO_HOLDINGS.read_text(encoding="utf-8")).items()})
+    if ETF_TOP_HOLDINGS.exists():
+        t = pd.read_csv(ETF_TOP_HOLDINGS, keep_default_na=False)
+        for isin, rows in t.groupby("isin", sort=False):
+            out[isin] = [(n, float(w) / 100) for n, w in zip(rows["name"], rows["weight"])]
+    return out
+
+
+_holdings_file = st.cache_resource(show_spinner=False)(_holdings_file)
+
+
+def _yahoo_holdings(symbols: list[str]) -> list[tuple]:
+    """The largest holdings of a fund on the first of its listings Yahoo has them for: [(company, weight 0-1)]."""
+    for sym in symbols[:3]:
+        try:
+            th = yf.Ticker(sym).funds_data.top_holdings
+        except Exception:  # noqa: BLE001 — no fund data on that listing
+            continue
+        if th is not None and len(th):
+            return [(str(r["Name"] or sym_), float(r["Holding Percent"] or 0)) for sym_, r in th.iterrows()
+                    if (r["Holding Percent"] or 0) > 0]
+    return []
+
+
+def fund_holdings(funds: list[tuple[str, str, str]], budget: float = 20.0) -> dict:
+    """[(isin, ticker, name)] -> isin -> {"h": [(company, weight 0-1)], "via": fund the list was borrowed from, or ""}.
+
+    From the data files, else Yahoo Finance (8 at a time, at most `budget` seconds); a fund with no list anywhere (many
+    swap ETFs) borrows the list of the snapshot ETF on the same index, else of the one whose name is nearest."""
+    snap = load_etf_snapshot()
+    synthetic = lambda i: snap.get(i, {}).get("basis") == "index"  # noqa: E731 — its own list is a collateral basket
+    raw = _fund_holdings([(i, t) for i, t, _ in funds if not synthetic(i)], budget)
+    out = {}
+    for isin, ticker, name in funds:
+        if raw.get(isin):
+            out[isin] = {"h": raw[isin], "via": ""}
+            continue
+        out[isin] = {"h": [], "via": ""}
+        # Candidates: the ETF on the same index, then the nearest names. A synthetic ETF only holds a small collateral
+        # basket, so the candidates with the most holdings (physical ETFs) are tried first.
+        cands, tried = [], {isin}
+        twin = same_index_etf(name)
+        if twin and twin != isin:
+            cands.append(twin)
+            tried.add(twin)
+        keys = index_twins()["keys"]
+        while len(cands) < 6:
+            nxt = nearest_by_name(name, "Equities", tried)
+            if not nxt:
+                break
+            cands.append(nxt)  # one per index name: the share classes of one ETF all count as that one
+            tried |= {i for i, k in keys.items() if k == keys.get(nxt)} | {nxt}
+        cands = sorted((c for c in cands if not synthetic(c)), key=lambda c: -float(snap[c].get("holdings") or 0))
+        for proxy in cands[:4]:
+            got = _fund_holdings([(proxy, snap[proxy].get("ticker") or "")], budget / 4).get(proxy)
+            if got:
+                out[isin] = {"h": got, "via": snap[proxy]["name"]}
+                break
+    return out
+
+
+def _fund_holdings(funds: list[tuple[str, str]], budget: float) -> dict:
+    """[(isin, ticker)] -> isin -> [(company, weight 0-1)]. Kept for the session; a fund Yahoo has nothing on is
+    remembered empty."""
+    known = _holdings_file(file_stamp(DEMO_HOLDINGS, ETF_TOP_HOLDINGS))
+    cache = st.session_state.setdefault("holdings_cache", {})
+    out, todo = {}, []
+    for isin, ticker in funds:
+        if isin in known:
+            out[isin] = known[isin]
+        elif isin in cache:
+            out[isin] = cache[isin]
+        else:
+            todo.append((isin, list(dict.fromkeys(x for x in [ticker] + load_fd_etf_tickers().get(isin, []) if x))))
+    if todo:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        pool = ThreadPoolExecutor(max_workers=8)
+        jobs = {pool.submit(_yahoo_holdings, syms): isin for isin, syms in todo}
+        try:
+            for f in as_completed(jobs, timeout=budget):
+                try:
+                    cache[jobs[f]] = out[jobs[f]] = f.result()
+                except Exception:  # noqa: BLE001
+                    cache[jobs[f]] = out[jobs[f]] = []
+        except Exception:  # noqa: BLE001 — out of time: what is missing is fetched on the next run
+            pass
+        pool.shutdown(wait=False, cancel_futures=True)
+    return out
+
+
 def fund_data_needed(isins) -> int:
     """How many positions still have to be looked up on Yahoo for the metrics (used to size the loading screen)."""
     known = {**_demo_fundamentals(file_stamp(DEMO_FUNDAMENTALS)), **st.session_state.get("fund_cache", {})}
     snap = load_etf_snapshot()
-    return sum(1 for i, k in position_kinds(isins).items() if k != "special" and i not in known and i not in snap)
+    held = {**_holdings_file(file_stamp(DEMO_HOLDINGS, ETF_TOP_HOLDINGS)), **st.session_state.get("holdings_cache", {})}
+    kinds = position_kinds(isins)
+    return (sum(1 for i, k in kinds.items() if k != "special" and i not in known and i not in snap)
+            + sum(1 for i, k in kinds.items() if k == "etf" and i not in held and snap.get(i, {}).get("asset_class")
+                  != "Bonds"))
 
 
 def position_fundamentals(items: list[dict]) -> dict:
@@ -639,6 +740,15 @@ def _financedatabase(stamp):  # noqa: ARG001 — stamp only keys the cache
     by_name = named.drop_duplicates("_k").set_index("_k")["sector"].to_dict()
     by_symbol = df.dropna(subset=["symbol", "country"]).drop_duplicates("symbol").set_index("symbol")["country"].to_dict()
     return by_isin, by_name, by_symbol
+
+
+def company_noise() -> set[str]:
+    return _company_noise(file_stamp(FD_SNAPSHOT))
+
+
+@st.cache_resource(show_spinner=False)
+def _company_noise(stamp) -> set[str]:  # noqa: ARG001 — stamp only keys the cache
+    return insights.name_noise(pd.read_csv(FD_SNAPSHOT, usecols=["name"], dtype=str)["name"].dropna())
 
 
 FD_ETF_TICKERS = DATA_DIR / "fd_etf_tickers.csv.gz"  # every Yahoo ticker of each ETF (from FinanceDatabase)
@@ -835,7 +945,7 @@ def closest_etf(name: str, sectors: dict, countries: dict, exclude: str = "", co
     return best
 
 
-def nearest_by_name(name: str, asset: str | None = None) -> str | None:
+def nearest_by_name(name: str, asset: str | None = None, exclude=()) -> str | None:
     """ISIN of the snapshot fund (of that asset class, if given) whose index name is nearest to this fund's, for a fund
     with no sector data: the words the two names do not share should weigh as little as possible, each word weighted
     by how rare it is, and the shared words must outweigh the fund's own words the candidate lacks."""
@@ -844,7 +954,7 @@ def nearest_by_name(name: str, asset: str | None = None) -> str | None:
     words = set(index_key(name))
     best, best_gap = None, None
     for isin, k in t["keys"].items():
-        if asset and t["asset"][isin] != asset:
+        if (asset and t["asset"][isin] != asset) or isin in exclude:
             continue
         theirs = set(k)
         shared, missing = sum(map(weight, words & theirs)), sum(map(weight, words - theirs))
@@ -1857,6 +1967,55 @@ def region_of(iso3) -> str:
     return (shape_for(iso3) or {}).get("region", "Unknown")
 
 
+def health_html(h: dict) -> str:
+    """The health score card (Metrics tab): the score, then each rule with its measure, scale and what would raise it."""
+    if not h:
+        return ""
+    rows = "".join(
+        f'<div class="hs-row"><div class="hs-top"><b>{html.escape(x["title"])}</b>'
+        f'<span class="hs-pts">{x["points"]:.0f}<small> / 25</small></span></div>'
+        f'<div class="hs-bar"><i style="width:{x["points"] * 4:.0f}%"></i></div>'
+        f'<div class="hs-m">{html.escape(x["measure"])}: <b>{html.escape(x["value"])}</b>. '
+        f'{html.escape(x["detail"])}</div>'
+        f'<div class="hs-d"><span>Scale</span>{html.escape(x["scale"])}.</div>'
+        f'<div class="hs-d"><span>Why</span>{html.escape(x["why"])}</div>'
+        + (f'<div class="hs-d hs-tip"><span>To improve</span>{html.escape(x["tip"])}</div>' if x["tip"] else "")
+        + '</div>' for x in h["parts"])
+    cov = h["coverage"]
+    return (
+        f'<div class="hs" id="health"><div class="hs-head"><div class="hs-score"><b>{h["score"]}</b><small>/100</small></div>'
+        f'<div><div class="hs-grade">{html.escape(h["grade"])}</div>'
+        f'<div class="hs-sub">Health score: four rules, 25 points each, explained below. It measures diversification '
+        f'and costs only: not returns, nor whether the mix suits your goals and risk tolerance.</div>'
+        f'<div class="hs-conf">Confidence: <b>{h["confidence"]}</b> · country and sector known for {cov["precision"]:.0f}% '
+        f'of the value · fees known for {cov["fees"]:.0f}% · fund holdings found for {cov["companies"]:.0f}% of the '
+        f'funds</div>' + "".join(f'<div class="hs-conf">{html.escape(n)}</div>' for n in h["notes"])
+        + f'</div></div><div class="hs-grid">{rows}</div></div>')
+
+
+def companies_html(c: dict) -> str:
+    """The largest companies of the portfolio, looking through every fund (Holdings tab)."""
+    if not c or not c["rows"]:
+        return ""
+    top = max(r["p"] for r in c["rows"]) or 1
+
+    def via(r):
+        parts = (["held directly"] if r["direct"] else []) + [f for f, _ in r["funds"][:3]]
+        more = len(r["funds"]) - 3
+        return " · ".join(parts) + (f" · +{more} more" if more > 0 else "")
+    rows = "".join(
+        f'<div class="row cmp" title="{html.escape(via(r))}"><span class="nm">{html.escape(r["n"])}</span>'
+        f'<span class="pc">{r["p"]:.2f}%</span><span class="sub">{fmt_money(r["v"])} · {html.escape(via(r))}</span>'
+        f'<div class="trk"><div style="width:{r["p"] / top * 100:.0f}%"></div></div></div>' for r in c["rows"][:15])
+    return (f'<div class="mh">Largest companies, looking through funds</div>'
+            f'<div class="hint ihint">Stocks held directly plus the largest holdings of each fund (its top 10 on Yahoo '
+            f'Finance). Holdings were found for {c["covered"]:.0f}% of the funds\' value, and these lists cover '
+            f'{c["listed"]:.0f}% of the portfolio, so a company\'s real exposure is at least what is shown.'
+            + (f' Funds with no list of their own (often swap ETFs) use the list of the closest ETF in our data: '
+               f'{html.escape(", ".join(c["borrowed"]))}.' if c.get("borrowed") else "") + '</div>'
+            f'<div class="cmps">{rows}</div>')
+
+
 def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.DataFrame | None = None, intro=False):
     """The whole app view: a spinning globe with glass cards around it, hover inspectors and detail windows.
 
@@ -2007,7 +2166,32 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
         snap = load_etf_snapshot()
         items = [{"i": h.isin, "k": kinds[h.isin], "t": h.ticker if isinstance(h.ticker, str) else "", "snap": h.isin in snap}
                  for h in holdings.itertuples()]
-        mt = metrics.payload(position_fundamentals(items), items, metrics.benchmark(snap), [CASH_LABEL])
+        fund = position_fundamentals(items)
+        mt = metrics.payload(fund, items, metrics.benchmark(snap), [CASH_LABEL])
+        # Company exposure: each stock held directly, plus the largest holdings of every fund.
+        # Equity funds only: a bond fund's lines are bonds (or other funds), not shares of companies.
+        equity_funds = [h for h in holdings.itertuples() if kinds[h.isin] == "etf" and h.asset == "Equities"]
+        held = fund_holdings([(h.isin, h.ticker if isinstance(h.ticker, str) else "", str(h.label))
+                              for h in equity_funds])
+        lines = [{"v": float(h.value), "direct": True, "fund": None, "holdings": [(h.label, 1.0)]}
+                 for h in holdings.itertuples() if kinds[h.isin] == "stock"]
+        lines += [{"v": float(h.value), "direct": False, "fund": h.label, "holdings": held.get(h.isin, {}).get("h", [])}
+                  for h in equity_funds]
+        borrowed_lists = sorted({x["via"] for x in held.values() if x["via"]})
+        companies = insights.company_exposure(lines, company_noise())
+        # Fees over the whole portfolio: stocks cost nothing, funds their TER; lines with no known fee are left out.
+        fee_v = fee_sum = 0.0
+        dearest = None
+        for h in holdings.itertuples():
+            ter = 0.0 if kinds[h.isin] == "stock" else (fund.get(h.isin) or {}).get("ter")
+            if ter is None:
+                continue
+            fee_v += float(h.value)
+            fee_sum += float(h.value) * ter
+            if ter > 0 and (dearest is None or ter > dearest[1]):
+                dearest = [str(h.label), round(float(ter), 2)]
+        fees = {"cost": fee_sum / fee_v if fee_v else 0.0, "covered": 100 * fee_v / total if total else 0.0,
+                "dearest": dearest}
 
     def shares(sub, col, n=10):
         return [[k, 100 * float(v)] for k, v in weights_by(sub, col).head(n).items()]
@@ -2040,7 +2224,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
         <div><b>{df.loc[~df['country'].isin(NEUTRAL), 'country'].nunique()}</b><span>countries</span></div>
         <div><b>{df.loc[~df['sector'].isin(NEUTRAL), 'sector'].nunique()}</b><span>sectors</span></div>
         <div><b>{resolved / len(holdings):.0%}</b><span>resolved</span></div>
-      </div>{note_html}
+      </div>@HEALTH@{note_html}
       <button class="cta alt" data-open="rebalance" data-title="Rebalance Assistant">⚖ Rebalance Assistant</button>
       <button class="cta" data-open="test" data-title="Test a position" data-small="1">＋ Test a position</button>"""
     left = [
@@ -2179,6 +2363,14 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
             "top5": round(100 * float(hw.head(5).sum()), 1), "top10": round(100 * float(hw.head(10).sum()), 1),
             "issues": [{"n": str(x["n"]), "i": x["i"], "issue": x["issue"], "p": round(x["p"], 2)} for x in issues],
             "notes": list(notes)}
+        world = metrics.benchmark(load_etf_snapshot())
+        report["companies"] = {**companies, "borrowed": borrowed_lists}
+        report["health"] = insights.health_score(
+            {k: 100 * float(v) for k, v in country_w.items()}, {k: 100 * float(v) for k, v in sec_w.items()},
+            world, companies, fees, NEUTRAL, precision)
+    h = report.get("health")
+    health_link = (f'<button class="hlink" data-health="1" title="How the score is computed">Health score '
+                   f'<b>{h["score"]}</b>/100 · {html.escape(h["grade"])} ›</button>' if h else "")
     legend = ", ".join(rgb_hex(ramp(i / 4, GLOBE_STOPS)) for i in range(5))
     payload = _js_json({"features": features, "rings": rings})
 
@@ -2294,6 +2486,37 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
     #tabbar .ind {{ transition:none; }}
   }}
   .assets {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:4px 28px; margin-bottom:18px; }}
+  .cmps {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:2px 28px; margin-bottom:18px; }}
+  .cmps .row .sub {{ white-space:nowrap; }}
+  .hlink {{ display:block; width:100%; text-align:left; margin:8px 0 2px; padding:7px 10px; border-radius:9px; cursor:pointer;
+           font:12px '{FONT_SANS}',sans-serif; color:{INK2}; background:rgba(255,255,255,.04);
+           border:1px solid rgba(255,255,255,.08); transition:border-color .15s, color .15s; }}
+  .hlink b {{ color:{INK}; font-weight:600; }}
+  .hlink:hover {{ color:{INK}; border-color:rgba(57,135,229,.5); }}
+  .hs {{ margin:0 0 26px; padding:18px 20px; border-radius:14px; background:rgba(255,255,255,.025);
+        border:1px solid rgba(255,255,255,.08); }}
+  .hs-head {{ display:flex; gap:22px; align-items:center; margin-bottom:16px; }}
+  .hs-score {{ flex:none; width:96px; height:96px; border-radius:50%; display:grid; place-content:center; text-align:center;
+              border:2px solid rgba(57,135,229,.55); box-shadow:0 0 24px -6px rgba(57,135,229,.5); }}
+  .hs-score b {{ font-size:34px; font-weight:700; letter-spacing:-.02em; line-height:1; }}
+  .hs-score small {{ font-size:11px; color:{MUTED}; }}
+  .hs-grade {{ font-size:18px; font-weight:600; color:{INK}; }}
+  .hs-sub {{ font-size:12.5px; line-height:1.5; color:{INK2}; margin-top:3px; max-width:720px; }}
+  .hs-conf {{ font-size:11.5px; color:{MUTED}; margin-top:6px; }}
+  .hs-conf b {{ color:{INK2}; }}
+  .hs-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }}
+  .hs-row {{ padding:12px 14px; border-radius:11px; background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); }}
+  .hs-top {{ display:flex; justify-content:space-between; align-items:baseline; }}
+  .hs-top b {{ font-size:13.5px; font-weight:600; }}
+  .hs-pts {{ font-size:18px; font-weight:700; }}
+  .hs-pts small {{ font-size:11px; font-weight:500; color:{MUTED}; }}
+  .hs-bar {{ height:4px; border-radius:4px; background:rgba(255,255,255,.07); margin:8px 0 10px; }}
+  .hs-bar i {{ display:block; height:100%; border-radius:4px; background:{BLUE}; }}
+  .hs-m {{ font-size:12px; line-height:1.5; color:{INK2}; margin-bottom:6px; }}
+  .hs-m b {{ color:{INK}; }}
+  .hs-d {{ font-size:11.5px; line-height:1.45; color:{MUTED}; margin-top:4px; }}
+  .hs-d span {{ display:inline-block; min-width:72px; color:{INK2}; font-weight:500; }}
+  .hs-tip span {{ color:#86b6ef; }}
   .logo {{ display:inline-flex; align-items:center; {LOGO_FX} font-weight:600; font-size:1.3rem; line-height:1; }}
   {LOGO_FX_CSS}
   .logo i {{ display:inline-flex; position:relative; top:-.06em; font-style:normal; margin-right:.35rem; }}
@@ -2606,7 +2829,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   {'' if demo else f'<div class="brand"><span class="logo"><i title="PortfolioScan">{LOGO_IMG}</i></span></div>'}{tabbar}
   <div id="globe"></div><div id="glow"></div>
   <div id="view" hidden><div id="vbody"></div></div>
-  <div class="col" id="left">{cards(left)}</div>
+  <div class="col" id="left">{cards(left).replace("@HEALTH@", health_link)}</div>
   <div class="col" id="right">{cards(right)}</div>
   <div class="hud" id="legend">
     <div class="lgk"><b>{len(g)}</b> countries on the map<span class="sep">·</span>largest <b>{html.escape(top)}</b></div>
@@ -2627,6 +2850,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   <div><div class="mh">Weight by region</div><div class="ch" data-chart="regbars"></div></div></div></template>
 <template id="t-holdings"><div class="mh">Asset classes</div><div class="assets">{
   _rows([(k, 100 * v, fmt_money(v * total), None, None) for k, v in asset_w.items()], grey=())}</div>
+  {companies_html(report.get("companies"))}
   <div class="mh">Positions</div><div class="tools"><input id="q" placeholder="Filter by name, ISIN, ticker, country, sector…">
   <button id="csv">⤓ Export CSV</button>
   <button class="act" data-open="test" data-title="Test a position" data-small="1">＋ Test a position</button>
@@ -2640,7 +2864,7 @@ def cockpit(df, sim: dict | None = None, notes=(), demo=False, excluded: pd.Data
   <div class="tabp" data-p="src" hidden>{lineage_tpl}</div></template>
 <template id="t-rebalance">{rebalance.TEMPLATE}</template>
 <template id="t-export">{report_export.TEMPLATE}</template>
-<template id="t-metrics">{metrics.TEMPLATE}</template>
+<template id="t-metrics">{health_html(report.get("health"))}{metrics.TEMPLATE}</template>
 <template id="t-accounts"><div class="acc"><div class="acc-list" id="acc-list"></div>
   <div class="acc-detail" id="acc-detail"></div></div></template>
 <template id="t-test"><form class="tform" id="tf" autocomplete="off">
@@ -2903,6 +3127,10 @@ function goThen(id, fn) {{
   afterMount = {{ id, fn }}; go(id);
 }}
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+document.querySelectorAll('[data-health]').forEach(b => b.addEventListener('click', e => {{
+  e.stopPropagation();  // inside the Portfolio card, which opens Holdings
+  goThen('metrics', () => {{ const h = document.getElementById('health'); if (h) h.scrollIntoView({{ block: 'start' }}); }});
+}}));
 
 // ── pop-up windows: data, rebalance, test a position, drill-down lists ──
 const modal = document.getElementById('modal'), mbody = document.getElementById('mbody');
@@ -3250,6 +3478,15 @@ function searchIndex() {{
     {{ w: a.p }}));
   AW.forEach(([k, p]) => add('Asset classes', '◧', NLABEL[k] || k, 'Show these positions in Holdings', pc(p),
     'asset class classe', () => goThen('holdings', () => filterTable(k)), {{ w: p }}));
+  if (REPORT.health) add('Metrics', '♥', 'Health score', `${{REPORT.health.score}}/100 · ${{REPORT.health.grade}}`, '',
+    'health score note sante diversification conseils', () => goThen('metrics', () => {{
+      const h = document.getElementById('health'); if (h) h.scrollIntoView({{ block: 'start' }}); }}));
+  if (REPORT.companies) add('Actions', '◎', 'Largest companies', 'Exposure to each company, looking through funds', '',
+    'companies entreprises look through exposure apple nvidia', () => goThen('holdings', () => {{
+      const c = vbody.querySelector('.cmps'); if (c) c.scrollIntoView({{ block: 'center' }}); }}));
+  (REPORT.companies ? REPORT.companies.rows : []).forEach(r => add('Companies', '◎', r.n,
+    [r.direct ? 'held directly' : '', ...r.funds.slice(0, 2).map(f => f[0])].filter(Boolean).join(' · '), pc(r.p), 'company entreprise',
+    () => goThen('holdings', () => {{ const c = vbody.querySelector('.cmps'); if (c) c.scrollIntoView({{ block: 'center' }}); }}), {{ w: r.p }}));
   METRICS.forEach(([t, kw]) => add('Metrics', '∑', t, 'Jump to it in the Metrics tab', '', kw,
     () => goThen('metrics', () => flashMetric(t))));
   return I;
@@ -3283,7 +3520,8 @@ function score(it, q, words) {{
   return words.length > 1 && words.every(w => it.kw.includes(w)) ? 15 : 0;
 }}
 // On equal scores a whole group (a sector, a country…) ranks above a single position whose name merely contains it.
-const GROUPS = ['Go to', 'Actions', 'Countries', 'Sectors', 'Regions', 'Accounts', 'Asset classes', 'Metrics', 'Positions'];
+const GROUPS = ['Go to', 'Actions', 'Countries', 'Sectors', 'Regions', 'Accounts', 'Asset classes', 'Metrics', 'Positions',
+                'Companies'];
 const srch = document.getElementById('srch'), sin = document.getElementById('srch-in'), sres = document.getElementById('srch-res');
 let sItems = [], sHits = [], sOn = 0;
 function hl(text, q) {{
@@ -3797,9 +4035,9 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overfl
 
 # How it works: each step, and the preview shown when it is hovered (a real screenshot of that step).
 STEPS = [
-    ("upload", "Upload", "CSV or Excel from any broker, columns detected.",
-     "Drop one or several exports. For each file, the app finds the ISIN, value, name and account columns and shows "
-     "them highlighted, so you can check or change them before the scan."),
+    ("upload", "Upload", "CSV, Excel or PDF from any broker, columns detected.",
+     "Drop one or several exports, including PDF statements. For each file, the app finds the ISIN, value, name and "
+     "account columns and shows them highlighted, so you can check or change them before the scan."),
     ("scan", "Scan", "Every position looked up across three data sources.",
      "Each position goes through FinanceDatabase, Yahoo Finance and OpenFIGI. Funds are broken down into the countries "
      "and sectors they really hold, live, with a log of every lookup."),
@@ -3821,12 +4059,12 @@ def landing():
                     'GitHub</a></div>', unsafe_allow_html=True)
         st.markdown(
             '<h1 class="lh1">See where your<br><span>money lives.</span></h1>'
-            '<p class="lsub">Drop the exports of your <b>brokers and insurers</b>, CSV or Excel, several at once. '
+            '<p class="lsub">Drop the exports of your <b>brokers and insurers</b>, CSV, Excel or PDF, several at once. '
             'Every stock, ETF, SCPI and euro fund is mapped by <b>country, sector and asset class</b> on a live '
             '3D globe.</p>',
             unsafe_allow_html=True,
         )
-        files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt"], accept_multiple_files=True,
+        files = st.file_uploader("Portfolio exports", type=["xlsx", "xls", "csv", "txt", "pdf"], accept_multiple_files=True,
                                  label_visibility="collapsed", key="up_main")
         start = bool(files) and st.button(f"Analyse {len(files)} file{'s' if len(files) > 1 else ''}",
                                           type="primary", key="start")
@@ -3886,9 +4124,10 @@ def review_import(i: int):
                            key=f"imp{i}_sep")
         if sep != tables[0].sep:
             tables = read_tables(f["name"], f["data"], sep)
-    elif len(tables) > 1:  # Excel with several sheets: default to the one with the most positions
+    elif len(tables) > 1:  # several Excel sheets or PDF tables: default to the one with the most positions
         found = [len(extract(t.raw, detect(t.raw))[0]) for t in tables]
-        k = st.selectbox("Sheet", range(len(tables)), index=found.index(max(found)),
+        k = st.selectbox("Table" if f["data"][:5] == b"%PDF-" else "Sheet", range(len(tables)),
+                         index=found.index(max(found)),
                          format_func=lambda k: f"{tables[k].label} ({found[k]} positions found)", key=f"imp{i}_sheet")
         tables = [tables[k]]
 
