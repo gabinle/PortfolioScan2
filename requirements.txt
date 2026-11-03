@@ -6,3 +6,4 @@ shapely==2.1.2
 pycountry==26.2.16
 requests==2.34.2
 yfinance==1.5.1
+pdfplumber==0.11.10

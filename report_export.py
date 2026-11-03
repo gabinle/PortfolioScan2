@@ -13,11 +13,13 @@ SHEETJS = ("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
 # (key, title, what it holds)
 SECTIONS = [
     ("summary", "Key figures", "Total value, positions, precision of the analysis"),
+    ("health", "Health score", "The four rules, the figures measured and the scale"),
     ("assets", "Asset classes", "Equities, bonds, real estate, cash…"),
     ("geo", "Countries & regions", "Exposure looked through every fund"),
     ("sectors", "Sectors", "The 11 GICS sectors, bonds and cash"),
     ("accounts", "Accounts", "Value, share and positions of each account"),
     ("metrics", "Concentration & diversification", "Largest lines, effective numbers"),
+    ("companies", "Largest companies", "Exposure to each company, looking through funds"),
     ("holdings", "All positions", "Every line with its country, sector and weight"),
     ("quality", "Data quality", "Issues, excluded funds, precision"),
 ]
@@ -100,6 +102,11 @@ function xpTables(sel) {
     ['Countries', R.countries], ['Sectors', R.sectors], ['Accounts', R.accounts],
     ['Positions resolved (%)', R.resolved], ['Precision of the analysis (%)', R.precision],
     ['Excluded funds', R.excluded]] });
+  if (sel.health && R.health) T.push({ title: 'Health score', head: ['Rule', 'Points (of 25)', 'Measured', 'Detail', 'Scale', 'To improve'],
+    rows: [['Health score', R.health.score + ' / 100', R.health.grade, 'Confidence: ' + R.health.confidence, '', ''],
+           ...R.health.parts.map(x => [x.title, x.points, x.value, x.detail, x.scale, x.tip])] });
+  if (sel.companies && R.companies) T.push({ title: 'Companies', head: ['Company', 'Weight (%)', 'Value', 'Held directly', 'Through funds'],
+    rows: R.companies.rows.map(r => [r.n, +r.p.toFixed(3), Math.round(r.v), Math.round(r.direct), r.funds.map(f => f[0]).join(' · ')]) });
   if (sel.assets) T.push({ title: 'Asset classes', head: ['Asset class', 'Weight (%)', 'Value'],
     rows: AW.map(([k, p]) => [xpLab(k), +p.toFixed(2), Math.round(p * TOTAL / 100)]) });
   if (sel.geo) {
@@ -211,6 +218,33 @@ function xpPdf(sel) {
        tile('Resolved', xpPct(R.resolved, 0), 'positions identified')]] },
       layout: { fillColor: () => SOFT, hLineWidth: () => 6, vLineWidth: () => 6, hLineColor: () => '#ffffff',
                 vLineColor: () => '#ffffff', paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0 } });
+  }
+  if (sel.health && R.health) {
+    const H = R.health;
+    const ring = `<svg xmlns="http://www.w3.org/2000/svg" width="74" height="74" viewBox="0 0 74 74">
+      <circle cx="37" cy="37" r="32" fill="none" stroke="${TRACK}" stroke-width="7"/>
+      <circle cx="37" cy="37" r="32" fill="none" stroke="${BLUE}" stroke-width="7" stroke-linecap="round"
+        stroke-dasharray="${(2 * Math.PI * 32 * H.score / 100).toFixed(1)} 999" transform="rotate(-90 37 37)"/></svg>`;
+    const rules = H.parts.map(x => [
+      { stack: [{ text: x.title, bold: true }, { text: x.measure, color: MUT, fontSize: 7.5, margin: [0, 2, 0, 0] }] },
+      { text: x.value, bold: true }, { text: `${Math.round(x.points)} / 25`, bold: true, alignment: 'right' },
+      { stack: [{ text: x.detail }, { text: x.scale + '.', color: MUT, fontSize: 7.5, margin: [0, 2, 0, 0] },
+                x.tip ? { text: 'To improve: ' + x.tip, color: BLUE, fontSize: 7.5, margin: [0, 2, 0, 0] } : { text: '' }] }]);
+    out.push(...section('Health score', 'Diversification and costs only: not returns, nor whether the mix suits your goals', { stack: [
+      { columns: [{ width: 84, stack: [{ svg: ring, width: 74, height: 74 }] },
+        { width: '*', margin: [4, 10, 0, 0], stack: [
+          { text: [{ text: String(H.score), fontSize: 24, bold: true }, { text: ' / 100', fontSize: 11, color: MUT }] },
+          { text: H.grade, fontSize: 12, bold: true, margin: [0, 1, 0, 0] },
+          { text: `Four rules, 25 points each · confidence ${H.confidence.toLowerCase()}`, color: MUT, fontSize: 8.5, margin: [0, 2, 0, 0] }] }],
+        margin: [0, 0, 0, 10] },
+      table(['Rule', 'Measured', 'Points', 'Detail'], rules, [118, 62, 40, '*'], [2], 8.5)] }));
+  }
+  if (sel.companies && R.companies && R.companies.rows.length) {
+    const C = R.companies;
+    out.push(...section('Largest companies', `Looking through funds · lists found for ${C.covered.toFixed(0)}% of the funds' value, so exposure is at least this`,
+      table(['Company', 'Weight', 'Value', 'Through'], C.rows.slice(0, 15).map(r => [{ text: r.n, bold: true }, xpPct(r.p, 2), xpMoney(r.v),
+        { text: [r.direct ? 'held directly' : '', ...r.funds.slice(0, 3).map(f => f[0])].filter(Boolean).join(' · '), color: MUT }]),
+        [130, 44, 52, '*'], [1, 2], 8)));
   }
   if (sel.assets) {
     out.push(...section('Asset allocation', 'What the portfolio is made of', { columns: [

@@ -122,8 +122,110 @@ def parse_text(text: str, sep: str) -> pd.DataFrame:
     return raw.loc[~(raw.apply(lambda c: c.str.strip()) == "").all(axis=1)].reset_index(drop=True)
 
 
+def is_pdf(data: bytes) -> bool:
+    return data[:5] == b"%PDF-"
+
+
+ISIN_IN_TEXT = re.compile(r"\b[A-Z]{2}[A-Z0-9]{9}[0-9]\b")
+
+
+def _grid(rows: list[list[str]]) -> pd.DataFrame:
+    """Rows of cells -> a text grid, padded to one width, empty rows dropped. When ISINs sit inside other text
+    ("LVMH (FR0000121014)"), a first column holds the ISIN found on each row, for the column detection to pick."""
+    rows = [[re.sub(r"\s+", " ", str(c or "")).strip() for c in r] for r in rows]
+    rows = [r for r in rows if any(r)]
+    width = max((len(r) for r in rows), default=0)
+    rows = [r + [""] * (width - len(r)) for r in rows]
+    alone = sum(1 for r in rows for c in r if ISIN_RE.fullmatch(c))
+    inside = sum(1 for r in rows if any(ISIN_IN_TEXT.search(c) for c in r))
+    if inside > alone:
+        rows = [[next((m.group(0) for c in r for m in [ISIN_IN_TEXT.search(c)] if m), "")] + r for r in rows]
+        first = next(k for k, r in enumerate(rows) if r[0])
+        if first:  # its title, on the header row above the first position
+            rows[first - 1][0] = "ISIN (found in text)"
+    return pd.DataFrame(rows, dtype=str).fillna("") if rows else pd.DataFrame()
+
+
+def _isin_rows(rows) -> int:
+    return sum(1 for r in rows if any(ISIN_IN_TEXT.search(str(c or "")) for c in r))
+
+
+def _layout_rows(pages) -> list[list[str]]:
+    """Rows rebuilt from where the words sit, for statements drawn without table lines: words close together form a
+    cell, and the cells of the lines that hold an ISIN set the columns (their horizontal spans, merged when they
+    overlap); every line's cells then go to the column they overlap most."""
+    lines = []
+    for page in pages:
+        words = page.extract_words(x_tolerance=1.5, keep_blank_chars=False)
+        for w in sorted(words, key=lambda w: (round(w["top"]), w["x0"])):
+            if lines and lines[-1]["page"] is page and abs(w["top"] - lines[-1]["top"]) <= 2.5:
+                lines[-1]["words"].append(w)
+            else:
+                lines.append({"page": page, "top": w["top"], "words": [w]})
+    for ln in lines:  # words -> cells: a gap wider than most of a character's height starts a new cell
+        cells = []
+        for w in sorted(ln["words"], key=lambda w: w["x0"]):
+            if cells and w["x0"] - cells[-1]["x1"] <= 0.8 * (w["bottom"] - w["top"]):
+                cells[-1].update(text=cells[-1]["text"] + " " + w["text"], x1=w["x1"])
+            else:
+                cells.append({"text": w["text"], "x0": w["x0"], "x1": w["x1"]})
+        ln["cells"] = cells
+    spans = sorted((c["x0"], c["x1"]) for ln in lines if any(ISIN_IN_TEXT.search(c["text"]) for c in ln["cells"])
+                   for c in ln["cells"])
+    cols = []
+    for x0, x1 in spans:
+        if cols and x0 <= cols[-1][1]:
+            cols[-1][1] = max(cols[-1][1], x1)
+        else:
+            cols.append([x0, x1])
+    if not cols:
+        return []
+
+    def column(c):
+        overlap = [min(c["x1"], b) - max(c["x0"], a) for a, b in cols]
+        best = max(range(len(cols)), key=lambda k: overlap[k])
+        if overlap[best] > 0:
+            return best
+        mid = (c["x0"] + c["x1"]) / 2
+        return min(range(len(cols)), key=lambda k: min(abs(mid - cols[k][0]), abs(mid - cols[k][1])))
+    rows = []
+    for ln in lines:
+        row = [""] * len(cols)
+        for c in ln["cells"]:
+            k = column(c)
+            row[k] = (row[k] + " " + c["text"]).strip()
+        rows.append(row)
+    return rows
+
+
+def read_pdf(name: str, data: bytes) -> list[Table]:
+    """The tables of a PDF statement: the tables drawn with lines, grouped by width across pages, or, when that finds
+    fewer ISINs, the rows rebuilt from the words' positions. Scanned PDFs (images only) have no text to read."""
+    import pdfplumber  # only needed for PDF files
+
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
+        drawn: dict[int, list] = {}
+        for page in pdf.pages:
+            for t in page.extract_tables():
+                if t and len(t[0]):
+                    drawn.setdefault(len(t[0]), []).extend(t)
+        layout = _layout_rows(pdf.pages)
+    out = []
+    for width, rows in sorted(drawn.items(), key=lambda kv: -_isin_rows(kv[1])):
+        if _isin_rows(rows):
+            out.append(Table(f"Table · {width} columns", _grid(rows)))
+    if _isin_rows(layout) > (_isin_rows(drawn[max(drawn, key=lambda k: _isin_rows(drawn[k]))]) if drawn else 0):
+        out.insert(0, Table("Text layout", _grid(layout)))
+    if not out:
+        raise ValueError("no ISIN found in this PDF (a scanned PDF has no text to read: export CSV or Excel instead)")
+    return out
+
+
 def read_tables(name: str, data: bytes, sep: str | None = None) -> list[Table]:
-    """Every table in the file: one per non-empty Excel sheet, or the CSV parsed with `sep` (guessed if None)."""
+    """Every table in the file: one per non-empty Excel sheet or PDF table, or the CSV parsed with `sep` (guessed if
+    None)."""
+    if is_pdf(data):
+        return read_pdf(name, data)
     if is_excel(data):
         sheets = pd.read_excel(io.BytesIO(data), sheet_name=None, header=None, dtype=str)
         out = []
