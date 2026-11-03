@@ -1,0 +1,422 @@
+{
+"LU1681043599": [],
+"FR0013412020": [],
+"FR0010527275": [
+[
+"IDEX Corp",
+0.046493
+],
+[
+"Veralto Corp",
+0.046266
+],
+[
+"American Water Works Co Inc",
+0.043273
+],
+[
+"United Utilities Group PLC Class A",
+0.043241
+],
+[
+"Graco Inc",
+0.04292
+],
+[
+"Ferguson Enterprises Inc",
+0.041812
+],
+[
+"GEA Group AG",
+0.041674
+],
+[
+"Severn Trent PLC",
+0.041285
+],
+[
+"Republic Services Inc",
+0.040805
+],
+[
+"Alfa Laval AB",
+0.040453
+]
+],
+"IE00BDBRDM35": [
+[
+"iShares Core US Aggregate Bond ETF",
+0.844577
+]
+],
+"IE00B3F81R35": [
+[
+"Anheuser-Busch InBev N.V./S.A. 2%",
+0.0016
+],
+[
+"Cooperatieve Rabobank U.A. 4.75%",
+0.0016
+],
+[
+"Anheuser-Busch InBev N.V./S.A. 2.75%",
+0.0014
+],
+[
+"ENEL Finance International N.V. 5%",
+0.0014
+],
+[
+"Orange S.A. 8.13%",
+0.0014
+],
+[
+"Total S.A. 2.63%",
+0.0014
+],
+[
+"Anheuser-Busch InBev N.V./S.A. 1.5%",
+0.0013
+],
+[
+"Cooperatieve Rabobank U.A. 4.13%",
+0.0013
+]
+],
+"IE00BL25JL35": [
+[
+"Microsoft Corp",
+0.064203
+],
+[
+"Apple Inc",
+0.058204
+],
+[
+"NVIDIA Corp",
+0.054097
+],
+[
+"Meta Platforms Inc Class A",
+0.042208
+],
+[
+"Visa Inc Class A",
+0.034353
+],
+[
+"ASML Holding NV",
+0.032437
+],
+[
+"Eli Lilly and Co",
+0.02513
+],
+[
+"Lam Research Corp",
+0.021199
+],
+[
+"Mastercard Inc Class A",
+0.019659
+],
+[
+"TJX Companies Inc",
+0.018942
+]
+],
+"IE00B1FZS350": [
+[
+"Simon Property Group Inc",
+0.0416
+],
+[
+"Prologis Inc",
+0.0306
+],
+[
+"Public Storage",
+0.023
+],
+[
+"Welltower Inc",
+0.0195
+],
+[
+"AvalonBay Communities Inc",
+0.0191
+],
+[
+"Equity Residential",
+0.0186
+],
+[
+"Vonovia SE",
+0.0183
+],
+[
+"Digital Realty Trust Inc",
+0.0172
+],
+[
+"Unibail-Rodamco-Westfield",
+0.0168
+],
+[
+"Ventas Inc",
+0.0164
+]
+],
+"IE00BF4RFH31": [
+[
+"Moderna Inc",
+0.006227
+],
+[
+"Guardant Health Inc",
+0.002117
+],
+[
+"Tenet Healthcare Corp",
+0.002095
+],
+[
+"US Foods Holding Corp",
+0.001968
+],
+[
+"Viatris Inc",
+0.001954
+],
+[
+"Roku Inc Class A",
+0.001947
+],
+[
+"Royal Gold Inc",
+0.001899
+],
+[
+"MACOM Technology Solutions Holdings Inc",
+0.001861
+],
+[
+"Woodward Inc",
+0.001856
+],
+[
+"TD Synnex Corp",
+0.00179
+]
+],
+"IE00B27YCK28": [
+[
+"Vale SA",
+0.0733
+],
+[
+"Itau Unibanco Holding SA Participating Preferred",
+0.0678
+],
+[
+"Bank Bradesco SA Participating Preferred",
+0.0565
+],
+[
+"Petroleo Brasileiro SA Petrobras Participating Preferred",
+0.0437
+],
+[
+"America Movil SAB de CV Class L",
+0.0385
+],
+[
+"Petroleo Brasileiro SA Petrobras",
+0.0367
+],
+[
+"Ambev SA",
+0.0349
+],
+[
+"Fomento Economico Mexicano SAB de CV Units (1 Series B, 4 Series D)",
+0.0287
+],
+[
+"B3 SA - Brasil Bolsa Balcao",
+0.0255
+],
+[
+"Credicorp Ltd",
+0.0253
+]
+],
+"IE00B52MJY50": [
+[
+"AIA Group Ltd",
+0.0615
+],
+[
+"Commonwealth Bank of Australia",
+0.0572
+],
+[
+"BHP Group Ltd",
+0.0449
+],
+[
+"Westpac Banking Corp",
+0.0407
+],
+[
+"CSL Ltd",
+0.0366
+],
+[
+"Australia and New Zealand Banking Group Ltd",
+0.0351
+],
+[
+"National Australia Bank Ltd",
+0.0307
+],
+[
+"Hong Kong Exchanges and Clearing Ltd",
+0.0214
+],
+[
+"DBS Group Holdings Ltd",
+0.0199
+],
+[
+"CK Hutchison Holdings Ltd",
+0.0176
+]
+],
+"IE00BKM4GZ66": [
+[
+"Taiwan Semiconductor Manufacturing Co Ltd",
+0.136839
+],
+[
+"Samsung Electronics Co Ltd",
+0.06612
+],
+[
+"SK hynix Inc",
+0.05165
+],
+[
+"Tencent Holdings Ltd",
+0.024018
+],
+[
+"Alibaba Group Holding Ltd Ordinary Shares",
+0.016194
+],
+[
+"MediaTek Inc",
+0.015958
+],
+[
+"Delta Electronics Inc",
+0.008261
+],
+[
+"Samsung Electronics Co Ltd Participating Preferred",
+0.008213
+],
+[
+"China Construction Bank Corp Class H",
+0.007476
+],
+[
+"Hon Hai Precision Industry Co Ltd",
+0.006935
+]
+],
+"IE00B5BMR087": [
+[
+"Microsoft Corp",
+0.0363
+],
+[
+"Apple Inc",
+0.035
+],
+[
+"Amazon.com Inc",
+0.0296
+],
+[
+"Berkshire Hathaway Inc B",
+0.0182
+],
+[
+"Johnson & Johnson",
+0.0168
+],
+[
+"JPMorgan Chase & Co",
+0.016
+],
+[
+"Facebook Inc A",
+0.0145
+],
+[
+"Alphabet Inc Class C",
+0.0144
+],
+[
+"Exxon Mobil Corp",
+0.0144
+],
+[
+"Alphabet Inc A",
+0.0142
+]
+],
+"IE00B0M62Q58": [
+[
+"NVIDIA Corp",
+0.057901
+],
+[
+"Apple Inc",
+0.053939
+],
+[
+"Microsoft Corp",
+0.039916
+],
+[
+"Amazon.com Inc",
+0.026609
+],
+[
+"Alphabet Inc Class A",
+0.022264
+],
+[
+"Meta Platforms Inc Class A",
+0.017575
+],
+[
+"Alphabet Inc Class C",
+0.017566
+],
+[
+"Broadcom Inc",
+0.017504
+],
+[
+"Micron Technology Inc",
+0.013266
+],
+[
+"Tesla Inc",
+0.011194
+]
+]
+}
