@@ -1,5 +1,9 @@
 streamlit==1.59.2
 pyarrow<25
+# starlette 1.10 + uvicorn 0.54 break Streamlit's static files ("Expected ASGI message 'http.response.start'")
+starlette==1.3.1
+uvicorn==0.40.0
+anyio==4.14.1
 pandas==3.0.3
 numpy==2.5.1
 openpyxl==3.1.5
